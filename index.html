@@ -15,8 +15,12 @@
 body { margin: 0; font: 16px/1.45 system-ui, sans-serif; color: var(--ink); background: var(--bg); }
 main { max-width: 1000px; margin: 0 auto; padding: 16px; }
 h1 { font-size: 1.3rem; margin: 0 0 12px; }
-h3 { margin: 0 0 6px; font-size: 1.05rem; }
+h2 { font-size: 1.15rem; margin: 0 0 8px; }
+h3 { margin: 10px 0 6px; font-size: 1.05rem; }
 p { margin: 6px 0; }
+ol { margin: 6px 0; padding-left: 22px; }
+table { border-collapse: collapse; width: 100%; margin: 6px 0 12px; font-size: 14px; }
+th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px; margin-bottom: 14px; }
 .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .muted { color: var(--muted); }
@@ -58,7 +62,8 @@ summary { cursor: pointer; }
 .controls { margin-top: 10px; max-width: calc(var(--board) + 20px); }
 #voiceSel { max-width: 220px; }
 
-#info { min-height: 150px; border-top: 1px solid var(--line); margin-top: 10px; padding-top: 10px; }
+#info { min-height: 170px; border-top: 1px solid var(--line); margin-top: 10px; padding-top: 10px; }
+#info h3 { margin-top: 0; }
 #info h3.inaccuracy { color: var(--inacc); } #info h3.mistake { color: var(--mist); } #info h3.blunder { color: var(--blun); }
 #moves { position: relative; display: grid; grid-template-columns: 2.6em 1fr 1fr; gap: 2px 4px;
          max-height: 260px; overflow: auto; margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; }
@@ -126,6 +131,18 @@ progress { width: 120px; }
       </div>
     </div>
   </section>
+
+  <section class="card">
+    <h2>My patterns</h2>
+    <div id="patterns"></div>
+    <div class="row">
+      <button id="exportBtn">Export backup</button>
+      <button id="importBtn">Import backup</button>
+      <button id="clearBtn">Clear history</button>
+      <input type="file" id="importFile" accept="application/json,.json" hidden>
+    </div>
+    <p id="historyMsg" class="muted"></p>
+  </section>
 </main>
 
 <script type="module">
@@ -137,10 +154,22 @@ const MAX_GAMES = 20;
 // A move is flagged when the mover's winning chances (0-100) drop by at least this much.
 const THRESHOLDS = { inaccuracy: 5, mistake: 10, blunder: 15 };
 const VOICE_SPEED = 0.95;                            // 1 = normal speaking speed
+const HABIT_AFTER = 2;                               // a type of slip counts as a habit after this many earlier times
+const HISTORY_KEY = 'cc-history';
+const MAX_HISTORY = 300;                             // oldest games drop off after this many
 
 const SYMBOL = { inaccuracy: '?!', mistake: '?', blunder: '??' };
 const GLYPH = { k: '♚', q: '♛', r: '♜', b: '♝', n: '♞', p: '♟' };
 const PIECE = { K: 'king', Q: 'queen', R: 'rook', B: 'bishop', N: 'knight' };
+const PIECE_NAME = { p: 'pawn', n: 'knight', b: 'bishop', r: 'rook', q: 'queen', k: 'king' };
+const VALUE = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
+const TAGS = {
+  droppedMaterial: { label: 'Dropped material', ing: 'dropping material' },
+  missedTactic:    { label: 'Missed a chance to win material', ing: 'missing a chance to win material' },
+  missedMate:      { label: 'Missed a forced mate', ing: 'missing a forced mate' },
+  allowedMate:     { label: 'Walked into a forced mate', ing: 'walking into a forced mate' },
+  positional:      { label: 'Positional slip (no material lost straight away)', ing: 'a positional slip' }
+};
 const FILES = 'abcdefgh';
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -258,6 +287,163 @@ function sanLine(fen, pv) {
 const betterLine = i => sanLine(G.fens[i], G.pv[i] || []);                       // what should have been played
 const bestReply = i => sanLine(G.fens[i + 1], (G.pv[i + 1] || []).slice(0, 1))[0]; // strongest answer to the move played
 
+// ---------- Sorting each slip into a type ----------
+function material(fen) {                     // White's material minus Black's, in pawns
+  let s = 0;
+  for (const ch of fen.split(' ')[0]) {
+    const v = VALUE[ch.toLowerCase()];
+    if (v) s += ch === ch.toLowerCase() ? -v : v;
+  }
+  return s;
+}
+// Material won by the side to move if the engine's line is played out for a few moves.
+function gain(fen, pv) {
+  if (!pv || pv.length < 2) return 0;
+  const s = fen.split(' ')[1] === 'w' ? 1 : -1;
+  let n = Math.min(pv.length, 6);
+  n -= n % 2;
+  const c = new Chess(fen);
+  try { for (const u of pv.slice(0, n)) c.move({ from: u.slice(0, 2), to: u.slice(2, 4), promotion: u[4] }); }
+  catch { return 0; }
+  return s * (material(c.fen()) - material(fen));
+}
+function tagMistake(g, i) {
+  const m = g.moves[i], s = m.color === 'w' ? 1 : -1, a = g.ev[i], b = g.ev[i + 1];
+  const mateFor = e => e.mate != null && e.mate * s > 0;
+  const mateAgainst = e => e.mate != null && e.mate * s < 0;
+  if (mateFor(a) && !mateFor(b) && b.winner !== m.color) return 'missedMate';
+  if (mateAgainst(b) && !mateAgainst(a)) return 'allowedMate';
+  const playedNet = s * (material(g.fens[i + 1]) - material(g.fens[i])) - gain(g.fens[i + 1], g.pv[i + 1]);
+  const bestNet = gain(g.fens[i], g.pv[i]);
+  if (bestNet - playedNet >= 2) return playedNet <= -2 ? 'droppedMaterial' : 'missedTactic';
+  return 'positional';
+}
+function phaseOf(fen) {
+  let pieces = 0;
+  for (const ch of fen.split(' ')[0]) { const v = VALUE[ch.toLowerCase()]; if (v > 1) pieces += v; }
+  if (pieces <= 26) return 'endgame';
+  return +fen.split(' ')[5] <= 10 ? 'opening' : 'middlegame';
+}
+// true or false when the game has clock times, null when it does not
+const isLowTime = m => (G.base && m.clock != null) ? m.clock < G.base * 0.1 : null;
+
+function openingOf(h) {
+  let name = h.Opening || '';
+  if (!name && h.ECOUrl) {
+    try { name = decodeURIComponent(h.ECOUrl.split('/').pop()).replace(/-\d.*$/, '').replace(/-/g, ' '); } catch {}
+  }
+  if (!name) name = h.ECO || 'Unknown opening';
+  const fam = name.match(/^.*?\b(?:Opening|Defense|Defence|Game|Gambit|Attack|System)\b/);
+  return { name, family: fam ? fam[0] : name };
+}
+function hashText(s) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return 'g' + (h >>> 0).toString(36);
+}
+
+// ---------- History (kept in this browser only) ----------
+function loadHistory() {
+  try { const h = JSON.parse(localStorage.getItem(HISTORY_KEY)); return Array.isArray(h) ? h : []; }
+  catch { return []; }
+}
+function storeHistory(h) {
+  try { localStorage.setItem(HISTORY_KEY, JSON.stringify(h)); return true; }
+  catch { return false; }
+}
+function tallyHistory(hist) {
+  const t = { games: hist.length, slips: 0, tag: {}, tagGames: {}, phase: {}, piece: {}, low: 0, clocked: 0, openings: {} };
+  for (const r of hist) {
+    const key = r.family || 'Unknown opening';
+    const o = t.openings[key] || (t.openings[key] = { games: 0, win: 0, draw: 0, loss: 0, slips: 0 });
+    o.games++;
+    if (r.result === 'win' || r.result === 'draw' || r.result === 'loss') o[r.result]++;
+    o.slips += r.mistakes.length;
+    const seen = new Set();
+    for (const m of r.mistakes) {
+      t.slips++;
+      t.tag[m.tag] = (t.tag[m.tag] || 0) + 1;
+      if (!seen.has(m.tag)) { seen.add(m.tag); t.tagGames[m.tag] = (t.tagGames[m.tag] || 0) + 1; }
+      t.phase[m.phase] = (t.phase[m.phase] || 0) + 1;
+      t.piece[m.piece] = (t.piece[m.piece] || 0) + 1;
+      if (m.low != null) { t.clocked++; if (m.low) t.low++; }
+    }
+  }
+  return t;
+}
+function saveGame() {
+  const h = G.headers, mistakes = [];
+  G.marks.forEach((kind, i) => {
+    const m = G.moves[i];
+    if (!kind || m.color !== G.me) return;
+    mistakes.push({ n: +G.fens[i].split(' ')[5], san: m.san, kind, tag: G.tags[i] || 'positional',
+      phase: phaseOf(G.fens[i]), piece: m.piece, low: isLowTime(m), fen: G.fens[i], best: G.best[i] || '' });
+  });
+  const res = h.Result === '1/2-1/2' ? 'draw'
+    : h.Result === '1-0' ? (G.me === 'w' ? 'win' : 'loss')
+    : h.Result === '0-1' ? (G.me === 'b' ? 'win' : 'loss') : '?';
+  const rec = { id: G.id, date: h.UTCDate || h.Date || '', color: G.me, result: res,
+    opp: (G.me === 'w' ? h.Black : h.White) || '', opening: G.opening.name, family: G.opening.family,
+    moves: G.moves.length, mistakes, saved: Date.now() };
+  const hist = loadHistory().filter(r => r.id !== rec.id);
+  hist.push(rec);
+  if (hist.length > MAX_HISTORY) hist.splice(0, hist.length - MAX_HISTORY);
+  return storeHistory(hist);
+}
+function repeatNote() {                      // compares this game with the earlier ones
+  const here = {};
+  G.marks.forEach((k, i) => {
+    if (k && G.moves[i].color === G.me) { const t = G.tags[i] || 'positional'; here[t] = (here[t] || 0) + 1; }
+  });
+  const prior = G.prior.tag;
+  const repeats = Object.keys(here).filter(k => (prior[k] || 0) >= HABIT_AFTER).sort((a, b) => prior[b] - prior[a]);
+  if (!repeats.length) return '';
+  const k = repeats[0];
+  return `Seen before: ${TAGS[k].ing} happened ${count(here[k], 'time', 'times')} in this game, and `
+    + `${count(prior[k], 'time', 'times')} in your ${count(G.prior.games, 'earlier game', 'earlier games')}.`;
+}
+function finishGame() {
+  if (!G.me) {
+    setStatus('Analysis complete. Not saved to your history: type your Chess.com username at the top, then load the game again.');
+    return;
+  }
+  const ok = saveGame();
+  renderPatterns();
+  setStatus(ok ? 'Analysis complete. Saved to your history.' : 'Analysis complete, but the browser refused to save it.', !ok);
+  const rep = repeatNote();
+  if (rep) {
+    $('summary').insertAdjacentHTML('beforeend', `<p><b>${esc(rep)}</b></p>`);
+    if (voiceOn) speak(rep);
+  }
+}
+function renderPatterns() {
+  const hist = loadHistory(), el = $('patterns');
+  if (!hist.length) {
+    el.innerHTML = '<p class="muted">No games saved yet. Type your Chess.com username at the top and analyse a game.</p>';
+    return;
+  }
+  const t = tallyHistory(hist);
+  let h = `<p>${count(t.games, 'game', 'games')} saved in this browser, with `
+    + `${count(t.slips, 'flagged move', 'flagged moves')} of yours.`
+    + (t.games < 10 ? ' Patterns become reliable after about 10 games.' : '') + '</p>';
+  const tags = Object.entries(t.tag).sort((a, b) => b[1] - a[1]);
+  if (tags.length) {
+    h += '<h3>Your most common slips</h3><ol>' + tags.map(([k, n]) =>
+      `<li><b>${(TAGS[k] || TAGS.positional).label}</b>: ${count(n, 'time', 'times')}, in ${t.tagGames[k]} of ${t.games} games</li>`
+    ).join('') + '</ol>';
+    h += '<p><b>Stage of the game:</b> ' + ['opening', 'middlegame', 'endgame']
+      .map(p => `${p} ${t.phase[p] || 0}`).join(' · ') + '</p>';
+    const pieces = Object.entries(t.piece).sort((a, b) => b[1] - a[1]).slice(0, 3);
+    h += '<p><b>Pieces you slip with most:</b> ' + pieces.map(([k, n]) => `${PIECE_NAME[k] || k} (${n})`).join(', ') + '</p>';
+    if (t.clocked) h += `<p><b>Short of time:</b> ${t.low} of ${t.clocked} slips came with under 10% of your clock left.</p>`;
+  }
+  const ops = Object.entries(t.openings).sort((a, b) => b[1].games - a[1].games).slice(0, 6);
+  h += '<h3>Your openings</h3><table><tr><th>Opening</th><th>Games</th><th>Won</th><th>Drawn</th><th>Lost</th><th>Slips per game</th></tr>'
+    + ops.map(([name, o]) => `<tr><td>${esc(name)}</td><td>${o.games}</td><td>${o.win}</td><td>${o.draw}</td>`
+      + `<td>${o.loss}</td><td>${(o.slips / o.games).toFixed(1)}</td></tr>`).join('') + '</table>';
+  el.innerHTML = h;
+}
+
 // ---------- Analysis ----------
 let runId = 0, chain = Promise.resolve();
 function setStatus(text, isError) {
@@ -267,7 +453,7 @@ function setStatus(text, isError) {
 function startAnalysis() {
   const id = ++runId;
   if (engine) engine.send('stop');
-  G.ev = []; G.best = []; G.pv = []; G.marks = [];
+  G.ev = []; G.best = []; G.pv = []; G.marks = []; G.tags = [];
   $('prog').value = 0;
   $('summary').textContent = '';
   chain = chain.then(() => analyse(id)).catch(err => console.error(err));
@@ -299,13 +485,16 @@ async function analyse(id) {
       g.pv[i] = r ? r.pv : [];
     }
     g.ev[i] = e;
-    if (i > 0) g.marks[i - 1] = classify(g, i - 1);
+    if (i > 0) {
+      g.marks[i - 1] = classify(g, i - 1);
+      if (g.marks[i - 1]) g.tags[i - 1] = tagMistake(g, i - 1);
+    }
     $('prog').value = (i + 1) / g.fens.length;
     setStatus(`Analysing move ${i} of ${g.fens.length - 1}…`);
     render();
   }
-  setStatus('Analysis complete.');
   renderSummary();
+  finishGame();
 }
 
 // ---------- Loading games ----------
@@ -320,17 +509,29 @@ function loadGame(pgn, me) {
   const fens = [r.fen()], moves = [];
   for (const h of hist) {
     const m = r.move(h.san);
-    moves.push({ san: m.san, color: m.color, from: m.from, to: m.to, uci: m.from + m.to + (m.promotion || '') });
+    moves.push({ san: m.san, color: m.color, piece: m.piece, from: m.from, to: m.to,
+      uci: m.from + m.to + (m.promotion || '') });
     fens.push(r.fen());
   }
+  // Clock times, when the PGN has one for every move (Chess.com games do).
+  const clocks = [...pgn.matchAll(/\[%clk (\d+):(\d+):(\d+(?:\.\d+)?)\]/g)].map(m => +m[1] * 3600 + +m[2] * 60 + +m[3]);
+  if (clocks.length === moves.length) moves.forEach((m, i) => { m.clock = clocks[i]; });
+  const tc = headers.TimeControl || '';
+  const base = /^\d+/.test(tc) && !tc.includes('/') ? parseInt(tc, 10) : 0;
+
   const same = side => !!me && (headers[side] || '').toLowerCase() === me.toLowerCase();
+  const id = headers.Link || hashText(moves.map(m => m.san).join(' '));
   if (synth) synth.cancel();
-  G = { headers, moves, fens, ev: [], best: [], pv: [], marks: [], me: same('White') ? 'w' : same('Black') ? 'b' : null };
+  G = { headers, moves, fens, ev: [], best: [], pv: [], marks: [], tags: [], id, base,
+        me: same('White') ? 'w' : same('Black') ? 'b' : null,
+        opening: openingOf(headers),
+        prior: tallyHistory(loadHistory().filter(rec => rec.id !== id)) };
   ply = 0;
   flipped = G.me === 'b';
   const name = side => esc(headers[side] || side) + (headers[side + 'Elo'] ? ` (${esc(headers[side + 'Elo'])})` : '');
-  $('players').innerHTML = `<b>${name('White')}</b> vs <b>${name('Black')}</b>` +
-    (headers.Result ? ` · ${esc(headers.Result)}` : '');
+  $('players').innerHTML = `<b>${name('White')}</b> vs <b>${name('Black')}</b>`
+    + (headers.Result ? ` · ${esc(headers.Result)}` : '')
+    + `<br><span class="muted">${esc(G.opening.name)}</span>`;
   $('review').hidden = false;
   render();
   startAnalysis();
@@ -444,6 +645,11 @@ function renderMoves() {
     if (b.className !== cls) b.className = cls;
   });
 }
+// How often you made this type of slip in earlier games (0 for the opponent's moves).
+function habitCount(i) {
+  const tag = G.tags[i];
+  return tag && G.moves[i].color === G.me ? (G.prior.tag[tag] || 0) : 0;
+}
 function renderInfo() {
   const el = $('info');
   if (ply === 0) {
@@ -460,11 +666,14 @@ function renderInfo() {
   let h = `<h3 class="${mark || ''}">${esc(label)}${mark ? SYMBOL[mark] + ' · ' + cap(mark) : ''}</h3>`;
   h += `<p>Evaluation after this move: <b>${fmt(G.ev[ply])}</b></p>`;
   if (mark) {
-    const line = betterLine(i), reply = bestReply(i);
+    const line = betterLine(i), reply = bestReply(i), tag = G.tags[i], n = habitCount(i);
     h += `<p>Better was <b>${esc(line[0] || G.best[i] || '?')}</b> (green arrow).</p>`;
     if (line.length > 1) h += `<p class="muted">Likely continuation: ${esc(line.join(' '))}</p>`;
     h += `<p>${note(i)}</p>`;
     if (reply) h += `<p>Strongest reply now: <b>${esc(reply)}</b></p>`;
+    if (tag) h += `<p class="muted">Type: ${TAGS[tag].label}.`
+      + (n >= HABIT_AFTER ? ` <b>A habit of yours: ${n} times in earlier games.</b>` : '') + '</p>';
+    if (isLowTime(m)) h += `<p class="muted">Played with ${Math.round(m.clock)} seconds left on the clock.</p>`;
   } else if (m.uci === G.best[i]) {
     h += `<p class="muted">This was the engine's first choice.</p>`;
   }
@@ -522,10 +731,11 @@ function spokenText() {
   const mark = G.marks[i];
   if (mark) {
     t += ` That is ${mark === 'inaccuracy' ? 'an inaccuracy' : 'a ' + mark}.`;
-    const better = betterLine(i)[0], reply = bestReply(i);
+    const better = betterLine(i)[0], reply = bestReply(i), n = habitCount(i);
     if (better) t += ` Better was ${sayMove(better)}.`;
     t += ' ' + note(i);
     if (reply) t += ` The strongest reply now is ${sayMove(reply)}.`;
+    if (n >= HABIT_AFTER) t += ` This is a habit. ${cap(TAGS[G.tags[i]].ing)} has happened ${n} times in your earlier games.`;
   } else if (m.uci === G.best[i]) {
     t += ' That was the best move.';
   }
@@ -606,7 +816,40 @@ $('pgnBtn').onclick = () => {
   catch (err) { $('loadMsg').textContent = err.message; }
 };
 
+$('exportBtn').onclick = () => {
+  const blob = new Blob([JSON.stringify(loadHistory())], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'chess-history.json';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+};
+$('importBtn').onclick = () => $('importFile').click();
+$('importFile').onchange = async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    const data = JSON.parse(await file.text());
+    if (!Array.isArray(data)) throw new Error('not a backup');
+    const byId = new Map(loadHistory().map(r => [r.id, r]));
+    for (const r of data) if (r && r.id && Array.isArray(r.mistakes)) byId.set(r.id, r);
+    storeHistory([...byId.values()]);
+    renderPatterns();
+    $('historyMsg').textContent = 'Backup imported.';
+  } catch {
+    $('historyMsg').textContent = 'That file is not a backup from this site.';
+  }
+  e.target.value = '';
+};
+$('clearBtn').onclick = () => {
+  if (!confirm('Delete all saved games from this browser?')) return;
+  try { localStorage.removeItem(HISTORY_KEY); } catch {}
+  renderPatterns();
+  $('historyMsg').textContent = 'History cleared.';
+};
+
 try { $('user').value = localStorage.getItem('cc-user') || ''; } catch {}
+renderPatterns();
 $('loadMsg').textContent = 'Enter your Chess.com username, or paste a PGN.';
 </script>
 </body>
