@@ -1,0 +1,505 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Game Review</title>
+<style>
+:root {
+  --board: min(calc(100vw - 86px), 480px);
+  --light: #ecd9b9; --dark: #ae8a68;
+  --ink: #1f2328; --muted: #667085; --line: #d8dee4; --bg: #f6f7f9; --card: #fff;
+  --inacc: #c98a00; --mist: #e06c1f; --blun: #d12f2f; --good: #2e9e4f;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font: 16px/1.45 system-ui, sans-serif; color: var(--ink); background: var(--bg); }
+main { max-width: 1000px; margin: 0 auto; padding: 16px; }
+h1 { font-size: 1.3rem; margin: 0 0 12px; }
+h3 { margin: 0 0 6px; font-size: 1.05rem; }
+p { margin: 6px 0; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px; margin-bottom: 14px; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.muted { color: var(--muted); }
+.error { color: var(--blun); }
+input[type=text], textarea, select { font: inherit; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; }
+input[type=text] { flex: 1; min-width: 160px; }
+textarea { width: 100%; height: 110px; margin: 8px 0; font: 13px ui-monospace, monospace; }
+button { font: inherit; padding: 8px 14px; border: 1px solid var(--line); border-radius: 8px; background: #fff; cursor: pointer; }
+button.primary { background: #2b6cb0; border-color: #2b6cb0; color: #fff; }
+details { margin-top: 10px; }
+summary { cursor: pointer; }
+
+#games { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+#games button { width: 100%; text-align: left; }
+#games .Won { color: var(--good); font-weight: 600; }
+#games .Lost { color: var(--blun); font-weight: 600; }
+
+.review { display: grid; grid-template-columns: auto 1fr; gap: 16px; margin-top: 10px; }
+@media (max-width: 800px) { .review { grid-template-columns: 1fr; } }
+.boardwrap { display: flex; gap: 6px; }
+.bar { width: 14px; height: var(--board); background: #333; border: 1px solid #999; border-radius: 4px;
+       display: flex; flex-direction: column; justify-content: flex-end; overflow: hidden; }
+.bar.flip { justify-content: flex-start; }
+.bar i { display: block; background: #fff; height: 50%; transition: height .2s; }
+.board { position: relative; width: var(--board); height: var(--board); display: grid;
+         grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr);
+         border-radius: 6px; overflow: hidden; user-select: none; }
+.sq { position: relative; display: flex; align-items: center; justify-content: center;
+      font-size: calc(var(--board) / 8 * .8); line-height: 1; }
+.sq.l { background: var(--light); } .sq.d { background: var(--dark); }
+.sq.hl::after { content: ""; position: absolute; inset: 0; background: rgba(255, 220, 60, .45); }
+.sq.hl.bad::after { background: rgba(209, 47, 47, .45); }
+.pc { position: relative; z-index: 1; }
+.pc.w { color: #fff; text-shadow: 0 0 2px #000, 0 0 2px #000, 0 1px 2px #000; }
+.pc.b { color: #1b1b1b; text-shadow: 0 0 1px rgba(255, 255, 255, .6); }
+.coord { position: absolute; font-size: 10px; line-height: 1; opacity: .75; z-index: 1; }
+.coord.rk { top: 2px; left: 3px; } .coord.fl { bottom: 2px; right: 3px; }
+.board svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; }
+.controls { margin-top: 10px; }
+
+#info { min-height: 130px; border-top: 1px solid var(--line); margin-top: 10px; padding-top: 10px; }
+#info h3.inaccuracy { color: var(--inacc); } #info h3.mistake { color: var(--mist); } #info h3.blunder { color: var(--blun); }
+#moves { position: relative; display: grid; grid-template-columns: 2.6em 1fr 1fr; gap: 2px 4px;
+         max-height: 260px; overflow: auto; margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; }
+#moves .num { color: var(--muted); text-align: right; padding: 4px 4px 4px 0; }
+#moves button { text-align: left; border: 0; background: none; padding: 4px 6px; border-radius: 6px; }
+#moves button.active { background: #dbe9f9; }
+#moves button.inaccuracy { color: var(--inacc); font-weight: 600; }
+#moves button.mistake { color: var(--mist); font-weight: 600; }
+#moves button.blunder { color: var(--blun); font-weight: 600; }
+progress { width: 120px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Game Review</h1>
+
+  <section class="card">
+    <form id="userForm" class="row">
+      <input type="text" id="user" placeholder="Chess.com username" autocomplete="off" autocapitalize="none" spellcheck="false">
+      <button class="primary">Load my games</button>
+    </form>
+    <p id="loadMsg" class="muted">Loading… if this message stays, the chess library could not be downloaded.</p>
+    <ul id="games"></ul>
+    <details>
+      <summary>Or paste a PGN</summary>
+      <textarea id="pgn" placeholder="Paste the PGN text of one game here"></textarea>
+      <button id="pgnBtn">Analyse this game</button>
+    </details>
+  </section>
+
+  <section class="card" id="review" hidden>
+    <div id="players"></div>
+    <div class="review">
+      <div>
+        <div class="boardwrap">
+          <div class="bar" id="bar"><i id="barFill"></i></div>
+          <div class="board" id="board"></div>
+        </div>
+        <div class="row controls">
+          <button id="first" title="Start">⏮</button>
+          <button id="prev" title="Back">◀</button>
+          <button id="next" title="Forward">▶</button>
+          <button id="last" title="End">⏭</button>
+          <button id="flip">Flip</button>
+          <button id="nextBad">Next mistake</button>
+        </div>
+      </div>
+      <div>
+        <div class="row">
+          <label>Depth
+            <select id="depth">
+              <option value="10">Quick (10)</option>
+              <option value="12" selected>Standard (12)</option>
+              <option value="15">Deep (15)</option>
+            </select>
+          </label>
+          <progress id="prog" max="1" value="0"></progress>
+        </div>
+        <p id="status" class="muted"></p>
+        <div id="summary"></div>
+        <div id="info"></div>
+        <div id="moves"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script type="module">
+import { Chess } from 'https://cdn.jsdelivr.net/npm/chess.js@1/+esm';
+
+// ---------- Settings ----------
+const ENGINE_FILE = 'stockfish-19-lite-single.js';   // must sit next to this page, with its .wasm file
+const MAX_GAMES = 20;
+// A move is flagged when the mover's winning chances (0-100) drop by at least this much.
+const THRESHOLDS = { inaccuracy: 5, mistake: 10, blunder: 15 };
+
+const SYMBOL = { inaccuracy: '?!', mistake: '?', blunder: '??' };
+const GLYPH = { k: '♚', q: '♛', r: '♜', b: '♝', n: '♞', p: '♟' };
+const FILES = 'abcdefgh';
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const cap = s => s[0].toUpperCase() + s.slice(1);
+
+let G = null;        // current game
+let ply = 0;         // position being shown (0 = start)
+let flipped = false;
+
+// ---------- Engine ----------
+class Engine {
+  constructor(url) {
+    this.onLine = null;
+    this.w = new Worker(url);
+    this.failed = new Promise((_, reject) => { this.w.onerror = () => reject(new Error('engine failed to load')); });
+    this.w.onmessage = e => {
+      for (const line of String(e.data).split('\n')) if (this.onLine) this.onLine(line.trim());
+    };
+  }
+  send(cmd) { this.w.postMessage(cmd); }
+  wait(cmd, token) {
+    return new Promise(resolve => {
+      this.onLine = line => { if (line === token) { this.onLine = null; resolve(); } };
+      this.send(cmd);
+    });
+  }
+  async init() {
+    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('engine timed out')), 30000));
+    const start = (async () => { await this.wait('uci', 'uciok'); await this.wait('isready', 'readyok'); })();
+    await Promise.race([start, this.failed, timeout]);
+  }
+  // Resolves with { type: 'cp' | 'mate', value, pv: [uci moves] } from the side to move's point of view.
+  analyse(fen, depth) {
+    return new Promise(resolve => {
+      let best = null;
+      this.onLine = line => {
+        if (line.startsWith('info') && line.includes(' pv ') && !line.includes('bound')) {
+          const m = line.match(/score (cp|mate) (-?\d+)/);
+          if (m) best = { type: m[1], value: +m[2], pv: line.split(' pv ')[1].trim().split(/\s+/) };
+        } else if (line.startsWith('bestmove')) {
+          this.onLine = null;
+          resolve(best);
+        }
+      };
+      this.send('position fen ' + fen);
+      this.send('go depth ' + depth);
+    });
+  }
+}
+
+let engine = null, enginePromise = null;
+function getEngine() {
+  if (!enginePromise) {
+    enginePromise = (async () => { const e = new Engine(ENGINE_FILE); await e.init(); engine = e; return e; })()
+      .catch(err => { enginePromise = null; throw err; });
+  }
+  return enginePromise;
+}
+
+// ---------- Evaluation helpers (all evaluations are stored from White's point of view) ----------
+function whiteCp(e) {
+  if (e.winner) return e.winner === 'w' ? 10000 : -10000;
+  if (e.mate != null) return e.mate > 0 ? 10000 : -10000;
+  return e.cp;
+}
+const winPct = cp => 50 + 50 * (2 / (1 + Math.exp(-0.00368208 * cp)) - 1);
+function fmt(e) {
+  if (e.winner) return 'checkmate';
+  if (e.mate != null) return (e.mate > 0 ? '+' : '−') + 'M' + Math.abs(e.mate);
+  const v = e.cp / 100;
+  return (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(1);
+}
+function terminal(fen) {
+  const c = new Chess(fen);
+  if (c.isCheckmate()) return { winner: c.turn() === 'w' ? 'b' : 'w' };
+  if (c.isStalemate()) return { cp: 0 };
+  return null;
+}
+function classify(g, i) {
+  const m = g.moves[i], s = m.color === 'w' ? 1 : -1;
+  if (m.uci === g.best[i]) return null;
+  const drop = winPct(s * whiteCp(g.ev[i])) - winPct(s * whiteCp(g.ev[i + 1]));
+  if (drop >= THRESHOLDS.blunder) return 'blunder';
+  if (drop >= THRESHOLDS.mistake) return 'mistake';
+  if (drop >= THRESHOLDS.inaccuracy) return 'inaccuracy';
+  return null;
+}
+function note(i) {
+  const m = G.moves[i], s = m.color === 'w' ? 1 : -1, a = G.ev[i], b = G.ev[i + 1];
+  const hadMate = a.mate != null && a.mate * s > 0;
+  const stillMate = (b.mate != null && b.mate * s > 0) || b.winner === m.color;
+  if (hadMate && !stillMate) return `This missed a forced mate in ${Math.abs(a.mate)}.`;
+  if (b.mate != null && b.mate * s < 0) return `This allows a forced mate in ${Math.abs(b.mate)}.`;
+  return `The evaluation went from ${fmt(a)} to ${fmt(b)} (positive numbers favour White).`;
+}
+function sanLine(fen, pv) {
+  const c = new Chess(fen), out = [];
+  for (const u of pv.slice(0, 8)) {
+    try { out.push(c.move({ from: u.slice(0, 2), to: u.slice(2, 4), promotion: u[4] }).san); }
+    catch { break; }
+  }
+  return out;
+}
+
+// ---------- Analysis ----------
+let runId = 0, chain = Promise.resolve();
+function setStatus(text, isError) {
+  $('status').textContent = text;
+  $('status').className = isError ? 'error' : 'muted';
+}
+function startAnalysis() {
+  const id = ++runId;
+  if (engine) engine.send('stop');
+  G.ev = []; G.best = []; G.pv = []; G.marks = [];
+  $('prog').value = 0;
+  $('summary').textContent = '';
+  chain = chain.then(() => analyse(id)).catch(err => console.error(err));
+}
+async function analyse(id) {
+  if (id !== runId) return;
+  const g = G, depth = +$('depth').value;
+  setStatus('Starting the engine…');
+  let eng;
+  try { eng = await getEngine(); }
+  catch {
+    if (id === runId) setStatus('The engine could not start. Check that ' + ENGINE_FILE +
+      ' and its .wasm file are in the same folder as this page.', true);
+    return;
+  }
+  if (id !== runId) return;
+  eng.send('ucinewgame');
+  await eng.wait('isready', 'readyok');
+  for (let i = 0; i < g.fens.length; i++) {
+    if (id !== runId) return;
+    const fen = g.fens[i];
+    let e = terminal(fen);
+    if (!e) {
+      const r = await eng.analyse(fen, depth);
+      if (id !== runId) return;
+      const s = fen.split(' ')[1] === 'w' ? 1 : -1;
+      e = !r ? { cp: 0 } : r.type === 'mate' ? { mate: r.value * s } : { cp: r.value * s };
+      g.best[i] = r ? r.pv[0] : undefined;
+      g.pv[i] = r ? r.pv : [];
+    }
+    g.ev[i] = e;
+    if (i > 0) g.marks[i - 1] = classify(g, i - 1);
+    $('prog').value = (i + 1) / g.fens.length;
+    setStatus(`Analysing move ${i} of ${g.fens.length - 1}…`);
+    render();
+  }
+  setStatus('Analysis complete.');
+  renderSummary();
+}
+
+// ---------- Loading games ----------
+function loadGame(pgn, me) {
+  const c = new Chess();
+  try { c.loadPgn(pgn); } catch { throw new Error('That PGN could not be read.'); }
+  const hist = c.history({ verbose: true });
+  if (!hist.length) throw new Error('No moves were found in that PGN.');
+  const headers = {};
+  for (const m of pgn.matchAll(/\[(\w+)\s+"([^"]*)"\]/g)) headers[m[1]] = m[2];
+  const r = headers.FEN ? new Chess(headers.FEN) : new Chess();
+  const fens = [r.fen()], moves = [];
+  for (const h of hist) {
+    const m = r.move(h.san);
+    moves.push({ san: m.san, color: m.color, from: m.from, to: m.to, uci: m.from + m.to + (m.promotion || '') });
+    fens.push(r.fen());
+  }
+  G = { headers, moves, fens, ev: [], best: [], pv: [], marks: [] };
+  ply = 0;
+  flipped = !!me && (headers.Black || '').toLowerCase() === me.toLowerCase();
+  const name = side => esc(headers[side] || side) + (headers[side + 'Elo'] ? ` (${esc(headers[side + 'Elo'])})` : '');
+  $('players').innerHTML = `<b>${name('White')}</b> vs <b>${name('Black')}</b>` +
+    (headers.Result ? ` · ${esc(headers.Result)}` : '');
+  $('review').hidden = false;
+  render();
+  startAnalysis();
+  $('review').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+async function fetchGames(user) {
+  const r = await fetch(`https://api.chess.com/pub/player/${encodeURIComponent(user.toLowerCase())}/games/archives`);
+  if (r.status === 404) throw new Error(`No Chess.com player called "${user}".`);
+  if (!r.ok) throw new Error('Chess.com did not respond. Try again in a minute.');
+  const { archives = [] } = await r.json();
+  const games = [];
+  const oldest = Math.max(0, archives.length - 6);          // look back six months at most
+  for (let i = archives.length - 1; i >= oldest && games.length < MAX_GAMES; i--) {
+    const month = await (await fetch(archives[i])).json();
+    games.push(...(month.games || []).filter(g => g.rules === 'chess' && g.pgn).reverse());
+  }
+  return games.slice(0, MAX_GAMES);
+}
+
+function showGames(games, user) {
+  const list = $('games');
+  list.textContent = '';
+  for (const g of games) {
+    const meWhite = g.white.username.toLowerCase() === user.toLowerCase();
+    const mine = meWhite ? g.white : g.black, opp = meWhite ? g.black : g.white;
+    const result = mine.result === 'win' ? 'Won' : opp.result === 'win' ? 'Lost' : 'Draw';
+    const date = new Date(g.end_time * 1000).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+    const btn = document.createElement('button');
+    const res = document.createElement('span');
+    res.className = result;
+    res.textContent = result;
+    btn.append(res, ` · ${meWhite ? 'White' : 'Black'} vs ${opp.username} (${opp.rating}) · ${g.time_class} · ${date}`);
+    btn.onclick = () => {
+      try { loadGame(g.pgn, user); } catch (err) { $('loadMsg').textContent = err.message; }
+    };
+    const li = document.createElement('li');
+    li.append(btn);
+    list.append(li);
+  }
+}
+
+// ---------- Rendering ----------
+function xy(sq) {
+  const f = sq.charCodeAt(0) - 97, r = +sq[1] - 1;
+  return flipped ? [7 - f + .5, r + .5] : [f + .5, 7 - r + .5];
+}
+function renderBoard() {
+  const pos = {};
+  G.fens[ply].split(' ')[0].split('/').forEach((row, r) => {
+    let f = 0;
+    for (const ch of row) {
+      if (/\d/.test(ch)) f += +ch;
+      else { pos[FILES[f] + (8 - r)] = ch; f++; }
+    }
+  });
+  const mv = ply > 0 ? G.moves[ply - 1] : null;
+  const mark = ply > 0 ? G.marks[ply - 1] : null;
+  let html = '';
+  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+    const file = flipped ? 7 - c : c, rank = flipped ? r + 1 : 8 - r;
+    const sq = FILES[file] + rank, p = pos[sq];
+    const hl = mv && (sq === mv.from || sq === mv.to);
+    html += `<div class="sq ${(file + rank) % 2 ? 'd' : 'l'}${hl ? ' hl' : ''}${hl && mark ? ' bad' : ''}">`
+      + (c === 0 ? `<span class="coord rk">${rank}</span>` : '')
+      + (r === 7 ? `<span class="coord fl">${FILES[file]}</span>` : '')
+      + (p ? `<span class="pc ${p === p.toUpperCase() ? 'w' : 'b'}">${GLYPH[p.toLowerCase()]}\uFE0E</span>` : '')
+      + '</div>';
+  }
+  let arrow = '';
+  const best = mark ? G.best[ply - 1] : null;
+  if (best) {
+    const [x1, y1] = xy(best.slice(0, 2));
+    let [x2, y2] = xy(best.slice(2, 4));
+    const len = Math.hypot(x2 - x1, y2 - y1) || 1;
+    x2 -= (x2 - x1) / len * .25; y2 -= (y2 - y1) / len * .25;
+    arrow = `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#2e9e4f" stroke-width=".17"
+      stroke-linecap="round" opacity=".9" marker-end="url(#ah)"/>`;
+  }
+  html += `<svg viewBox="0 0 8 8"><defs><marker id="ah" markerWidth="4" markerHeight="4" refX="2.6" refY="2"
+    orient="auto"><path d="M0,0 L4,2 L0,4 Z" fill="#2e9e4f"/></marker></defs>${arrow}</svg>`;
+  $('board').innerHTML = html;
+
+  const e = G.ev[ply];
+  $('barFill').style.height = (e ? winPct(whiteCp(e)) : 50) + '%';
+  $('bar').classList.toggle('flip', flipped);
+}
+function renderMoves() {
+  const el = $('moves');
+  el.textContent = '';
+  G.moves.forEach((m, i) => {
+    if (m.color === 'w' || i === 0) {
+      const n = document.createElement('span');
+      n.className = 'num';
+      n.textContent = G.fens[i].split(' ')[5] + '.';
+      el.append(n);
+      if (m.color === 'b') el.append(document.createElement('span'));
+    }
+    const b = document.createElement('button');
+    const mark = G.marks[i];
+    b.textContent = m.san + (mark ? SYMBOL[mark] : '');
+    b.className = (mark || '') + (i + 1 === ply ? ' active' : '');
+    b.onclick = () => go(i + 1);
+    el.append(b);
+  });
+}
+function renderInfo() {
+  const el = $('info');
+  if (ply === 0) {
+    el.innerHTML = '<p class="muted">Starting position. Step through with the buttons or the ← → keys.</p>';
+    return;
+  }
+  const i = ply - 1, m = G.moves[i];
+  const label = `${G.fens[i].split(' ')[5]}${m.color === 'w' ? '.' : '…'} ${m.san}`;
+  if (!G.ev[ply]) {
+    el.innerHTML = `<h3>${esc(label)}</h3><p class="muted">Not analysed yet.</p>`;
+    return;
+  }
+  const mark = G.marks[i];
+  let h = `<h3 class="${mark || ''}">${esc(label)}${mark ? SYMBOL[mark] + ' · ' + cap(mark) : ''}</h3>`;
+  h += `<p>Evaluation after this move: <b>${fmt(G.ev[ply])}</b></p>`;
+  if (mark) {
+    const line = sanLine(G.fens[i], G.pv[i] || []);
+    h += `<p>Better was <b>${esc(line[0] || G.best[i] || '?')}</b> (green arrow).</p>`;
+    if (line.length > 1) h += `<p class="muted">Likely continuation: ${esc(line.join(' '))}</p>`;
+    h += `<p>${note(i)}</p>`;
+  } else if (m.uci === G.best[i]) {
+    h += `<p class="muted">This was the engine's first choice.</p>`;
+  }
+  el.innerHTML = h;
+}
+function renderSummary() {
+  const n = { w: { inaccuracy: 0, mistake: 0, blunder: 0 }, b: { inaccuracy: 0, mistake: 0, blunder: 0 } };
+  G.marks.forEach((k, i) => { if (k) n[G.moves[i].color][k]++; });
+  const row = (c, side) => `<p><b>${esc(G.headers[side] || side)}</b>: ${n[c].inaccuracy} inaccuracies, `
+    + `${n[c].mistake} mistakes, ${n[c].blunder} blunders</p>`;
+  $('summary').innerHTML = row('w', 'White') + row('b', 'Black');
+}
+function render() { renderBoard(); renderMoves(); renderInfo(); }
+function go(p) {
+  if (!G) return;
+  ply = Math.max(0, Math.min(G.moves.length, p));
+  render();
+  const box = $('moves'), a = box.querySelector('.active');
+  if (a && (a.offsetTop < box.scrollTop || a.offsetTop + a.offsetHeight > box.scrollTop + box.clientHeight)) {
+    box.scrollTop = a.offsetTop - box.clientHeight / 2;
+  }
+}
+
+// ---------- Wiring ----------
+$('first').onclick = () => go(0);
+$('prev').onclick = () => go(ply - 1);
+$('next').onclick = () => go(ply + 1);
+$('last').onclick = () => go(G.moves.length);
+$('flip').onclick = () => { flipped = !flipped; render(); };
+$('nextBad').onclick = () => {
+  let i = G.marks.findIndex((k, idx) => k && idx >= ply);
+  if (i < 0) i = G.marks.findIndex(k => k);
+  if (i >= 0) go(i + 1);
+};
+$('depth').onchange = () => { if (G) { startAnalysis(); render(); } };
+document.addEventListener('keydown', e => {
+  if (!G || /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
+  if (e.key === 'ArrowLeft') { go(ply - 1); e.preventDefault(); }
+  if (e.key === 'ArrowRight') { go(ply + 1); e.preventDefault(); }
+});
+
+$('userForm').onsubmit = async e => {
+  e.preventDefault();
+  const user = $('user').value.trim();
+  if (!user) return;
+  $('loadMsg').textContent = 'Fetching games from Chess.com…';
+  $('games').textContent = '';
+  try {
+    const games = await fetchGames(user);
+    try { localStorage.setItem('cc-user', user); } catch {}
+    $('loadMsg').textContent = games.length ? 'Pick a game to review:' : 'No recent standard games found for that player.';
+    showGames(games, user);
+  } catch (err) {
+    $('loadMsg').textContent = err.message || 'Could not reach Chess.com.';
+  }
+};
+$('pgnBtn').onclick = () => {
+  try { loadGame($('pgn').value.trim(), $('user').value.trim()); }
+  catch (err) { $('loadMsg').textContent = err.message; }
+};
+
+try { $('user').value = localStorage.getItem('cc-user') || ''; } catch {}
+$('loadMsg').textContent = 'Enter your Chess.com username, or paste a PGN.';
+</script>
+</body>
+</html>
