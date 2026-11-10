@@ -55,9 +55,10 @@ summary { cursor: pointer; }
 .coord { position: absolute; font-size: 10px; line-height: 1; opacity: .75; z-index: 1; }
 .coord.rk { top: 2px; left: 3px; } .coord.fl { bottom: 2px; right: 3px; }
 .board svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; }
-.controls { margin-top: 10px; }
+.controls { margin-top: 10px; max-width: calc(var(--board) + 20px); }
+#voiceSel { max-width: 220px; }
 
-#info { min-height: 130px; border-top: 1px solid var(--line); margin-top: 10px; padding-top: 10px; }
+#info { min-height: 150px; border-top: 1px solid var(--line); margin-top: 10px; padding-top: 10px; }
 #info h3.inaccuracy { color: var(--inacc); } #info h3.mistake { color: var(--mist); } #info h3.blunder { color: var(--blun); }
 #moves { position: relative; display: grid; grid-template-columns: 2.6em 1fr 1fr; gap: 2px 4px;
          max-height: 260px; overflow: auto; margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; }
@@ -103,6 +104,8 @@ progress { width: 120px; }
           <button id="last" title="End">⏭</button>
           <button id="flip">Flip</button>
           <button id="nextBad">Next mistake</button>
+          <button id="voice">🔇 Voice: off</button>
+          <select id="voiceSel" title="Choose a voice" hidden></select>
         </div>
       </div>
       <div>
@@ -133,13 +136,16 @@ const ENGINE_FILE = 'stockfish-19-lite-single.js';   // must sit next to this pa
 const MAX_GAMES = 20;
 // A move is flagged when the mover's winning chances (0-100) drop by at least this much.
 const THRESHOLDS = { inaccuracy: 5, mistake: 10, blunder: 15 };
+const VOICE_SPEED = 0.95;                            // 1 = normal speaking speed
 
 const SYMBOL = { inaccuracy: '?!', mistake: '?', blunder: '??' };
 const GLYPH = { k: '♚', q: '♛', r: '♜', b: '♝', n: '♞', p: '♟' };
+const PIECE = { K: 'king', Q: 'queen', R: 'rook', B: 'bishop', N: 'knight' };
 const FILES = 'abcdefgh';
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const cap = s => s[0].toUpperCase() + s.slice(1);
+const count = (n, one, many) => n + ' ' + (n === 1 ? one : many);
 
 let G = null;        // current game
 let ply = 0;         // position being shown (0 = start)
@@ -208,6 +214,16 @@ function fmt(e) {
   const v = e.cp / 100;
   return (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(1);
 }
+function describe(e) {                       // the same evaluation in plain words
+  if (e.winner) return 'checkmate';
+  const side = whiteCp(e) > 0 ? 'White' : 'Black';
+  if (e.mate != null) return `a forced mate in ${Math.abs(e.mate)} for ${side}`;
+  const v = Math.abs(e.cp);
+  if (v < 50) return 'about level';
+  if (v < 150) return `slightly better for ${side}`;
+  if (v < 400) return `clearly better for ${side}`;
+  return `winning for ${side}`;
+}
 function terminal(fen) {
   const c = new Chess(fen);
   if (c.isCheckmate()) return { winner: c.turn() === 'w' ? 'b' : 'w' };
@@ -229,7 +245,7 @@ function note(i) {
   const stillMate = (b.mate != null && b.mate * s > 0) || b.winner === m.color;
   if (hadMate && !stillMate) return `This missed a forced mate in ${Math.abs(a.mate)}.`;
   if (b.mate != null && b.mate * s < 0) return `This allows a forced mate in ${Math.abs(b.mate)}.`;
-  return `The evaluation went from ${fmt(a)} to ${fmt(b)} (positive numbers favour White).`;
+  return `Before this move the position was ${describe(a)}. After it, the position is ${describe(b)}.`;
 }
 function sanLine(fen, pv) {
   const c = new Chess(fen), out = [];
@@ -239,6 +255,8 @@ function sanLine(fen, pv) {
   }
   return out;
 }
+const betterLine = i => sanLine(G.fens[i], G.pv[i] || []);                       // what should have been played
+const bestReply = i => sanLine(G.fens[i + 1], (G.pv[i + 1] || []).slice(0, 1))[0]; // strongest answer to the move played
 
 // ---------- Analysis ----------
 let runId = 0, chain = Promise.resolve();
@@ -305,9 +323,11 @@ function loadGame(pgn, me) {
     moves.push({ san: m.san, color: m.color, from: m.from, to: m.to, uci: m.from + m.to + (m.promotion || '') });
     fens.push(r.fen());
   }
-  G = { headers, moves, fens, ev: [], best: [], pv: [], marks: [] };
+  const same = side => !!me && (headers[side] || '').toLowerCase() === me.toLowerCase();
+  if (synth) synth.cancel();
+  G = { headers, moves, fens, ev: [], best: [], pv: [], marks: [], me: same('White') ? 'w' : same('Black') ? 'b' : null };
   ply = 0;
-  flipped = !!me && (headers.Black || '').toLowerCase() === me.toLowerCase();
+  flipped = G.me === 'b';
   const name = side => esc(headers[side] || side) + (headers[side + 'Elo'] ? ` (${esc(headers[side + 'Elo'])})` : '');
   $('players').innerHTML = `<b>${name('White')}</b> vs <b>${name('Black')}</b>` +
     (headers.Result ? ` · ${esc(headers.Result)}` : '');
@@ -440,10 +460,11 @@ function renderInfo() {
   let h = `<h3 class="${mark || ''}">${esc(label)}${mark ? SYMBOL[mark] + ' · ' + cap(mark) : ''}</h3>`;
   h += `<p>Evaluation after this move: <b>${fmt(G.ev[ply])}</b></p>`;
   if (mark) {
-    const line = sanLine(G.fens[i], G.pv[i] || []);
+    const line = betterLine(i), reply = bestReply(i);
     h += `<p>Better was <b>${esc(line[0] || G.best[i] || '?')}</b> (green arrow).</p>`;
     if (line.length > 1) h += `<p class="muted">Likely continuation: ${esc(line.join(' '))}</p>`;
     h += `<p>${note(i)}</p>`;
+    if (reply) h += `<p>Strongest reply now: <b>${esc(reply)}</b></p>`;
   } else if (m.uci === G.best[i]) {
     h += `<p class="muted">This was the engine's first choice.</p>`;
   }
@@ -452,8 +473,9 @@ function renderInfo() {
 function renderSummary() {
   const n = { w: { inaccuracy: 0, mistake: 0, blunder: 0 }, b: { inaccuracy: 0, mistake: 0, blunder: 0 } };
   G.marks.forEach((k, i) => { if (k) n[G.moves[i].color][k]++; });
-  const row = (c, side) => `<p><b>${esc(G.headers[side] || side)}</b>: ${n[c].inaccuracy} inaccuracies, `
-    + `${n[c].mistake} mistakes, ${n[c].blunder} blunders</p>`;
+  const row = (c, side) => `<p><b>${esc(G.headers[side] || side)}</b>: `
+    + `${count(n[c].inaccuracy, 'inaccuracy', 'inaccuracies')}, `
+    + `${count(n[c].mistake, 'mistake', 'mistakes')}, ${count(n[c].blunder, 'blunder', 'blunders')}</p>`;
   $('summary').innerHTML = row('w', 'White') + row('b', 'Black');
 }
 function render() { renderBoard(); renderMoves(); renderInfo(); }
@@ -465,7 +487,76 @@ function go(p) {
   if (a && (a.offsetTop < box.scrollTop || a.offsetTop + a.offsetHeight > box.scrollTop + box.clientHeight)) {
     box.scrollTop = a.offsetTop - box.clientHeight / 2;
   }
+  if (voiceOn) speak(spokenText());
 }
+
+// ---------- Voice ----------
+const synth = window.speechSynthesis;
+let voiceOn = false;
+
+// Turns chess notation into words: "Nxf3+" becomes "knight takes F 3, check".
+function sayMove(san) {
+  const tail = san.endsWith('#') ? ', checkmate' : san.endsWith('+') ? ', check' : '';
+  if (san.startsWith('O-O-O')) return 'castles queenside' + tail;
+  if (san.startsWith('O-O')) return 'castles kingside' + tail;
+  const m = san.match(/^([KQRBN])?([a-h])?([1-8])?(x)?([a-h])([1-8])(?:=([QRBN]))?[+#]?$/);
+  if (!m) return san;
+  const [, pc, fromFile, fromRank, takes, toFile, toRank, promo] = m;
+  const parts = [];
+  if (pc) parts.push(PIECE[pc]); else if (!takes) parts.push('pawn');
+  if (fromFile) parts.push(fromFile.toUpperCase());
+  if (fromRank) parts.push(fromRank);
+  parts.push(takes ? 'takes' : 'to', toFile.toUpperCase(), toRank);
+  return parts.join(' ') + (promo ? ', promoting to a ' + PIECE[promo] : '') + tail;
+}
+function who(color) {
+  if (!G.me) return color === 'w' ? 'White' : 'Black';
+  return color === G.me ? 'You' : 'Your opponent';
+}
+function spokenText() {
+  if (!G) return '';
+  if (ply === 0) return 'Starting position.';
+  const i = ply - 1, m = G.moves[i];
+  let t = `Move ${G.fens[i].split(' ')[5]}. ${who(m.color)} played ${sayMove(m.san)}.`;
+  if (!G.ev[ply]) return t;
+  const mark = G.marks[i];
+  if (mark) {
+    t += ` That is ${mark === 'inaccuracy' ? 'an inaccuracy' : 'a ' + mark}.`;
+    const better = betterLine(i)[0], reply = bestReply(i);
+    if (better) t += ` Better was ${sayMove(better)}.`;
+    t += ' ' + note(i);
+    if (reply) t += ` The strongest reply now is ${sayMove(reply)}.`;
+  } else if (m.uci === G.best[i]) {
+    t += ' That was the best move.';
+  }
+  return t;
+}
+function speak(text) {
+  if (!synth || !text) return;
+  synth.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  const v = synth.getVoices().find(x => x.name === $('voiceSel').value);
+  if (v) { u.voice = v; u.lang = v.lang; } else { u.lang = 'en-US'; }
+  u.rate = VOICE_SPEED;
+  synth.speak(u);
+}
+function fillVoices() {
+  const voices = synth.getVoices().filter(v => v.lang.startsWith('en'));
+  if (!voices.length) return;
+  let saved = '';
+  try { saved = localStorage.getItem('cc-voice') || ''; } catch {}
+  const sel = $('voiceSel');
+  sel.textContent = '';
+  for (const v of voices) {
+    const o = document.createElement('option');
+    o.value = v.name;
+    o.textContent = `${v.name} (${v.lang})`;
+    if (v.name === saved) o.selected = true;
+    sel.append(o);
+  }
+}
+if (synth) { fillVoices(); synth.onvoiceschanged = fillVoices; }
+else { $('voice').hidden = true; }
 
 // ---------- Wiring ----------
 $('first').onclick = () => go(0);
@@ -477,6 +568,16 @@ $('nextBad').onclick = () => {
   let i = G.marks.findIndex((k, idx) => k && idx >= ply);
   if (i < 0) i = G.marks.findIndex(k => k);
   if (i >= 0) go(i + 1);
+};
+$('voice').onclick = () => {
+  voiceOn = !voiceOn;
+  $('voice').textContent = voiceOn ? '🔊 Voice: on' : '🔇 Voice: off';
+  $('voiceSel').hidden = !voiceOn;
+  if (voiceOn) speak(spokenText()); else synth.cancel();
+};
+$('voiceSel').onchange = () => {
+  try { localStorage.setItem('cc-voice', $('voiceSel').value); } catch {}
+  if (voiceOn) speak(spokenText());
 };
 $('depth').onchange = () => { if (G) { startAnalysis(); render(); } };
 document.addEventListener('keydown', e => {
