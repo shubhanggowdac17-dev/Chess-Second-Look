@@ -1,0 +1,181 @@
+/* Second Look. Colours are variables so that dark mode only has to change this first block. */
+:root {
+  --board: max(240px, min(calc(100vw - 62px), calc(100vh - 170px), 520px));
+  --light: #ecd9b9; --dark: #ae8a68;
+  --ink: #1f2328; --muted: #5f6b7a; --line: #d8dee4; --bg: #f6f7f9; --card: #fff; --field: #fff;
+  --accent: #2b6cb0; --accent-ink: #fff; --soft: #e8f0fa;
+  --good: #2e9e4f; --bad: #d12f2f;
+}
+:root[data-theme="dark"] {
+  --ink: #e6e8eb; --muted: #9aa5b1; --line: #3a4048; --bg: #16191d; --card: #1f2329; --field: #2a2f36;
+  --accent: #4b8fd6; --soft: #2a3a4d; --light: #d9c4a0; --dark: #96744f;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ink: #e6e8eb; --muted: #9aa5b1; --line: #3a4048; --bg: #16191d; --card: #1f2329; --field: #2a2f36;
+    --accent: #4b8fd6; --soft: #2a3a4d; --light: #d9c4a0; --dark: #96744f;
+  }
+}
+/* One colour per move label, used by the board badge, the move list, chips and graph dots. */
+.l-brilliant { --lc: #1baca6; } .l-great { --lc: #4f8fc0; } .l-best { --lc: #4c9a3a; } .l-excellent { --lc: #74a84e; }
+.l-good { --lc: #8a9f77; } .l-book { --lc: #a88865; } .l-inaccuracy { --lc: #d9a514; } .l-mistake { --lc: #e2812a; }
+.l-miss { --lc: #e8604c; } .l-blunder { --lc: #c9302c; }
+
+* { box-sizing: border-box; }
+body { margin: 0; font: 16px/1.45 system-ui, sans-serif; color: var(--ink); background: var(--bg); }
+main { max-width: 1040px; margin: 0 auto; padding: 12px; }
+h1 { font-size: 1.35rem; margin: 0; }
+h2 { font-size: 1.15rem; margin: 0 0 8px; }
+h3 { margin: 12px 0 6px; font-size: 1.02rem; }
+p { margin: 6px 0; }
+a { color: var(--accent); }
+ol { margin: 6px 0; padding-left: 22px; }
+table { border-collapse: collapse; width: 100%; margin: 6px 0 12px; font-size: 14px; }
+th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px; margin-bottom: 14px; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+.error { color: var(--bad); }
+.scrollx { overflow-x: auto; }
+input[type=text], textarea, select { font: inherit; color: var(--ink); background: var(--field); padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; max-width: 100%; }
+input[type=text] { flex: 1; min-width: 150px; }
+textarea { width: 100%; height: 110px; margin: 8px 0; font: 13px ui-monospace, monospace; }
+button { font: inherit; color: var(--ink); padding: 8px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--field); cursor: pointer; }
+button:disabled { opacity: .45; cursor: default; }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+button.small { padding: 5px 10px; }
+details { margin-top: 12px; }
+summary { cursor: pointer; }
+progress { width: 120px; accent-color: var(--accent); }
+footer { padding: 4px 4px 24px; }
+
+.top { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.top #themeBtn { margin-left: auto; }
+.tabs { display: flex; gap: 4px; margin-bottom: 12px; overflow-x: auto; position: sticky; top: 0; z-index: 20; background: var(--bg); padding: 4px 0; }
+.tabs button { border-radius: 999px; padding: 7px 14px; white-space: nowrap; }
+.tabs button.active { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+
+/* ----- Games tab ----- */
+.monthrow { margin-top: 10px; }
+.monthrow select { flex: 1; min-width: 140px; }
+.filters { margin-top: 8px; }
+.filters select, .filters input { padding: 6px 8px; font-size: 14px; }
+.filters input { min-width: 120px; }
+#games { max-height: 62vh; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; border: 1px solid var(--line); border-radius: 8px; margin-top: 6px; position: relative; }
+#games:empty { display: none; }
+/* Days that are off screen are not laid out until scrolled to, so a month of several hundred games stays smooth. */
+.day { content-visibility: auto; contain-intrinsic-size: auto 260px; }
+.day h3 { position: sticky; top: 0; z-index: 1; margin: 0; padding: 6px 10px; background: var(--soft); font-size: 14px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.day h3 button { padding: 2px 8px; font-size: 12px; font-weight: normal; }
+.game { display: grid; grid-template-columns: 3.2em 1fr auto; gap: 2px 8px; align-items: center; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: none; padding: 8px 10px; min-height: 48px; }
+.game:hover { background: var(--soft); }
+.game .res { font-weight: 600; grid-row: span 2; }
+.game .res.win { color: var(--good); } .game .res.loss { color: var(--bad); } .game .res.draw { color: var(--muted); }
+.game .who { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.game .meta { grid-column: 2; font-size: 13px; color: var(--muted); }
+.game .rev { grid-column: 3; grid-row: 1 / span 2; color: var(--good); font-weight: 600; font-size: 14px; white-space: nowrap; }
+.side { display: inline-block; width: 11px; height: 11px; border-radius: 3px; border: 1px solid #777; margin-right: 6px; vertical-align: -1px; }
+.side.w { background: #fff; } .side.b { background: #222; }
+.empty { padding: 14px; margin: 0; }
+
+/* ----- Board ----- */
+.review { display: grid; grid-template-columns: auto 1fr; gap: 16px; margin-top: 10px; }
+.review > * { min-width: 0; }
+@media (max-width: 860px) {
+  .review { grid-template-columns: 1fr; }
+  /* On a narrow screen the coach's words come straight under the board and its buttons. */
+  #review .review { display: flex; flex-direction: column; gap: 0; }
+  #review .left, #review .right { display: contents; }
+  #review .boardwrap { order: 1; } #review .nav { order: 2; } #status { order: 3; margin-top: 10px; } #info { order: 4; min-height: 0; }
+  #lines { order: 5; } #coach { order: 6; } #moves { order: 7; } #review .opts { order: 8; } #shareMsg { order: 9; } #review .depthrow { order: 10; margin-top: 10px; }
+}
+.boardwrap { display: flex; gap: 6px; }
+.bar { width: 14px; height: var(--board); background: #333; border: 1px solid #999; border-radius: 4px; flex: none;
+       display: flex; flex-direction: column; justify-content: flex-end; overflow: hidden; }
+.bar.flip { justify-content: flex-start; }
+.bar i { display: block; background: #fff; height: 50%; transition: height .2s; }
+.board { position: relative; width: var(--board); height: var(--board); display: grid; flex: none;
+         grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr);
+         border-radius: 6px; overflow: hidden; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.sq { position: relative; }
+.sq.l { background: var(--light); } .sq.d { background: var(--dark); }
+.sq.hl::before { content: ""; position: absolute; inset: 0; background: rgba(255, 220, 60, .5); }
+.sq.hl[class*="t-"]::before { background: rgba(209, 47, 47, .45); }
+.sq.sel::before { content: ""; position: absolute; inset: 0; background: rgba(60, 140, 255, .45); }
+.sq.mark::before { content: ""; position: absolute; inset: 0; background: rgba(46, 158, 79, .6); }
+.sq.dot::after { content: ""; position: absolute; left: 34%; top: 34%; width: 32%; height: 32%; border-radius: 50%; background: rgba(0, 0, 0, .28); z-index: 3; }
+.sq.cap::after { content: ""; position: absolute; inset: 4%; border-radius: 50%; border: calc(var(--board) / 8 * .09) solid rgba(0, 0, 0, .28); z-index: 3; }
+.coord { position: absolute; font-size: 10px; line-height: 1; opacity: .8; color: #333; z-index: 1; pointer-events: none; }
+.coord.rk { top: 2px; left: 3px; } .coord.fl { bottom: 2px; right: 3px; }
+.pc { position: absolute; left: 0; top: 0; width: 12.5%; height: 12.5%; background-size: 100% 100%; background-repeat: no-repeat; z-index: 2; pointer-events: none; }
+.pc.mine { pointer-events: auto; cursor: grab; touch-action: none; }   /* a finger on your own piece drags it instead of scrolling the page */
+.pc.dragging { z-index: 6; cursor: grabbing; filter: drop-shadow(0 4px 4px rgba(0, 0, 0, .4)); }
+.board svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 4; }
+.arrow { stroke-width: .17; stroke-linecap: round; opacity: .9; }
+.arrow.green { stroke: #2e9e4f; } .arrow.blue { stroke: #2b6cb0; } .arrow.red { stroke: #d12f2f; }
+.arrow-head.green path { fill: #2e9e4f; } .arrow-head.blue path { fill: #2b6cb0; } .arrow-head.red path { fill: #d12f2f; }
+.badge { position: absolute; z-index: 5; width: calc(var(--board) / 8 * .46); height: calc(var(--board) / 8 * .46); margin: calc(var(--board) / 8 * -.12) 0 0 calc(var(--board) / 8 * -.34);
+         border-radius: 50%; background: var(--lc); color: #fff; font-weight: 700; font-size: calc(var(--board) / 8 * .27); line-height: 1;
+         display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0, 0, 0, .5); pointer-events: none; }
+.promo { position: absolute; inset: 0; z-index: 7; background: rgba(0, 0, 0, .45); display: flex; align-items: center; justify-content: center; }
+.promo-box { background: var(--card); border-radius: 10px; padding: 10px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: center; max-width: 92%; }
+.promo-box .pc { position: static; width: calc(var(--board) / 6.5); height: calc(var(--board) / 6.5); pointer-events: auto; background-color: var(--light); border: 1px solid var(--line); padding: 0; }
+.controls { margin-top: 10px; max-width: calc(var(--board) + 20px); }
+#voiceSel { max-width: 180px; padding: 4px 6px; font-size: 13px; }
+
+/* ----- Coach panel ----- */
+#info { min-height: 150px; border-top: 1px solid var(--line); margin-top: 10px; padding-top: 10px; }
+#info h3 { margin-top: 0; color: var(--lc, inherit); }
+.chip { display: inline-flex; align-items: center; justify-content: center; min-width: 1.5em; height: 1.5em; padding: 0 .25em; border-radius: 999px;
+        background: var(--lc); color: #fff; font-size: .8em; font-weight: 700; vertical-align: 1px; }
+.ask, .fb { background: var(--soft); border-radius: 8px; padding: 10px 12px; margin: 8px 0; }
+.fb.good { border-left: 4px solid var(--good); } .fb.bad { border-left: 4px solid var(--bad); }
+.line { font-family: ui-monospace, monospace; font-size: 14px; }
+.pvs { font-size: 14px; padding-left: 20px; } .pvs li { margin: 2px 0; }
+#moves { position: relative; display: grid; grid-template-columns: 2.6em 1fr 1fr; gap: 2px 4px;
+         max-height: 260px; overflow: auto; margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; }
+#moves .num { color: var(--muted); text-align: right; padding: 4px 4px 4px 0; }
+#moves button { text-align: left; border: 0; background: none; padding: 5px 6px; border-radius: 6px; }
+#moves button.active { background: var(--soft); outline: 1px solid var(--accent); }
+#moves button[class*="l-"] { color: var(--lc); }
+#moves button.l-best, #moves button.l-excellent, #moves button.l-good, #moves button.l-book { color: inherit; }
+#moves button.l-inaccuracy, #moves button.l-mistake, #moves button.l-miss, #moves button.l-blunder, #moves button.l-brilliant, #moves button.l-great { font-weight: 600; }
+
+/* ----- Game report ----- */
+#report { border-top: 1px solid var(--line); margin-top: 14px; }
+.counts { max-width: 520px; } .counts td:nth-child(n+2), .counts th:nth-child(n+2) { text-align: center; }
+.accrow td { font-size: 1.1em; }
+.chart svg { display: block; width: 100%; height: 110px; border-radius: 6px; cursor: pointer; touch-action: manipulation; }
+.chart.tall svg { height: auto; cursor: default; }
+.g-black { fill: #3a3a3a; } .g-white { fill: #f1f1f1; } .g-mid { stroke: #888; stroke-width: 1; stroke-dasharray: 4 4; }
+.g-now { stroke: var(--accent); stroke-width: 2; vector-effect: non-scaling-stroke; }
+#graph circle { fill: var(--lc); stroke: #fff; stroke-width: 1; }
+#clock svg { background: var(--soft); }
+.c-w { fill: #c9ced6; stroke: #7a828e; stroke-width: .5; } .c-b { fill: #444b55; }
+#clock rect[class*="l-"] { fill: var(--lc); }
+#clock rect.now { stroke: var(--accent); stroke-width: 2; }
+.key { display: block; width: 100%; text-align: left; margin: 4px 0; padding: 7px 10px; }
+.p-grid { stroke: var(--line); stroke-width: 1; } .p-text { fill: var(--muted); font-size: 11px; }
+.p-line { fill: none; stroke: var(--accent); stroke-width: 2; } .p-bar { fill: var(--bad); opacity: .55; }
+.p-dot { fill: var(--muted); stroke: var(--card); stroke-width: 1; } .p-dot.win { fill: var(--good); } .p-dot.loss { fill: var(--bad); }
+.key-line { display: inline-block; width: 18px; height: 3px; background: var(--accent); vertical-align: middle; }
+.key-bar { display: inline-block; width: 8px; height: 12px; background: var(--bad); opacity: .55; vertical-align: middle; }
+
+/* ----- Friends ----- */
+.friends td { vertical-align: top; white-space: nowrap; }
+.friends td.top b { color: var(--good); }
+.form { display: inline-block; width: 1.5em; height: 1.5em; line-height: 1.5em; text-align: center; border-radius: 4px; color: #fff; font-style: normal; font-size: 12px; font-weight: 700; margin-right: 2px; background: #8a94a0; }
+.form.win { background: var(--good); } .form.loss { background: var(--bad); }
+
+/* ----- Phones ----- */
+@media (max-width: 560px) {
+  main { padding: 8px; }
+  .card { padding: 10px; }
+  .tagline, .wide { display: none; }
+  .tabs button { padding: 7px 11px; font-size: 15px; }
+  .controls button { padding: 9px 12px; }
+  .controls button.small { padding: 6px 9px; }
+  #moves { max-height: 180px; }
+  .filters select, .filters input { flex: 1 1 44%; }
+}

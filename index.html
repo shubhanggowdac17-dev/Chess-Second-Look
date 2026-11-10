@@ -3,854 +3,207 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Game Review</title>
-<style>
-:root {
-  --board: min(calc(100vw - 86px), 480px);
-  --light: #ecd9b9; --dark: #ae8a68;
-  --ink: #1f2328; --muted: #667085; --line: #d8dee4; --bg: #f6f7f9; --card: #fff;
-  --inacc: #c98a00; --mist: #e06c1f; --blun: #d12f2f; --good: #2e9e4f;
-}
-* { box-sizing: border-box; }
-body { margin: 0; font: 16px/1.45 system-ui, sans-serif; color: var(--ink); background: var(--bg); }
-main { max-width: 1000px; margin: 0 auto; padding: 16px; }
-h1 { font-size: 1.3rem; margin: 0 0 12px; }
-h2 { font-size: 1.15rem; margin: 0 0 8px; }
-h3 { margin: 10px 0 6px; font-size: 1.05rem; }
-p { margin: 6px 0; }
-ol { margin: 6px 0; padding-left: 22px; }
-table { border-collapse: collapse; width: 100%; margin: 6px 0 12px; font-size: 14px; }
-th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); }
-.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px; margin-bottom: 14px; }
-.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-.muted { color: var(--muted); }
-.error { color: var(--blun); }
-input[type=text], textarea, select { font: inherit; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; }
-input[type=text] { flex: 1; min-width: 160px; }
-textarea { width: 100%; height: 110px; margin: 8px 0; font: 13px ui-monospace, monospace; }
-button { font: inherit; padding: 8px 14px; border: 1px solid var(--line); border-radius: 8px; background: #fff; cursor: pointer; }
-button.primary { background: #2b6cb0; border-color: #2b6cb0; color: #fff; }
-details { margin-top: 10px; }
-summary { cursor: pointer; }
-
-#games { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
-#games button { width: 100%; text-align: left; }
-#games .Won { color: var(--good); font-weight: 600; }
-#games .Lost { color: var(--blun); font-weight: 600; }
-
-.review { display: grid; grid-template-columns: auto 1fr; gap: 16px; margin-top: 10px; }
-@media (max-width: 800px) { .review { grid-template-columns: 1fr; } }
-.boardwrap { display: flex; gap: 6px; }
-.bar { width: 14px; height: var(--board); background: #333; border: 1px solid #999; border-radius: 4px;
-       display: flex; flex-direction: column; justify-content: flex-end; overflow: hidden; }
-.bar.flip { justify-content: flex-start; }
-.bar i { display: block; background: #fff; height: 50%; transition: height .2s; }
-.board { position: relative; width: var(--board); height: var(--board); display: grid;
-         grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr);
-         border-radius: 6px; overflow: hidden; user-select: none; }
-.sq { position: relative; display: flex; align-items: center; justify-content: center;
-      font-size: calc(var(--board) / 8 * .8); line-height: 1; }
-.sq.l { background: var(--light); } .sq.d { background: var(--dark); }
-.sq.hl::after { content: ""; position: absolute; inset: 0; background: rgba(255, 220, 60, .45); }
-.sq.hl.bad::after { background: rgba(209, 47, 47, .45); }
-.pc { position: relative; z-index: 1; }
-.pc.w { color: #fff; text-shadow: 0 0 2px #000, 0 0 2px #000, 0 1px 2px #000; }
-.pc.b { color: #1b1b1b; text-shadow: 0 0 1px rgba(255, 255, 255, .6); }
-.coord { position: absolute; font-size: 10px; line-height: 1; opacity: .75; z-index: 1; }
-.coord.rk { top: 2px; left: 3px; } .coord.fl { bottom: 2px; right: 3px; }
-.board svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; }
-.controls { margin-top: 10px; max-width: calc(var(--board) + 20px); }
-#voiceSel { max-width: 220px; }
-
-#info { min-height: 170px; border-top: 1px solid var(--line); margin-top: 10px; padding-top: 10px; }
-#info h3 { margin-top: 0; }
-#info h3.inaccuracy { color: var(--inacc); } #info h3.mistake { color: var(--mist); } #info h3.blunder { color: var(--blun); }
-#moves { position: relative; display: grid; grid-template-columns: 2.6em 1fr 1fr; gap: 2px 4px;
-         max-height: 260px; overflow: auto; margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; }
-#moves .num { color: var(--muted); text-align: right; padding: 4px 4px 4px 0; }
-#moves button { text-align: left; border: 0; background: none; padding: 4px 6px; border-radius: 6px; }
-#moves button.active { background: #dbe9f9; }
-#moves button.inaccuracy { color: var(--inacc); font-weight: 600; }
-#moves button.mistake { color: var(--mist); font-weight: 600; }
-#moves button.blunder { color: var(--blun); font-weight: 600; }
-progress { width: 120px; }
-</style>
+<title>Second Look</title>
+<meta name="description" content="Second Look: a free coach for your own Chess.com games. Runs entirely in your browser.">
+<meta name="theme-color" content="#2b6cb0">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%232b6cb0'/%3E%3Ctext x='16' y='23' font-size='20' text-anchor='middle' fill='%23fff' font-family='sans-serif'%3E%E2%99%9E%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="pieces.css">
+<link rel="stylesheet" href="style.css">
+<script>
+  // Set the colour theme before the page is drawn, so there is no flash of the wrong one.
+  try { var t = JSON.parse(localStorage.getItem('cc-settings') || '{}').theme; if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+</script>
 </head>
 <body>
 <main>
-  <h1>Game Review</h1>
+  <header class="top">
+    <h1>Second Look</h1>
+    <span class="muted tagline">Review your own games with a coach in your browser</span>
+    <button type="button" id="themeBtn" class="small" title="Switch between light and dark">Dark mode</button>
+  </header>
 
-  <section class="card">
-    <form id="userForm" class="row">
-      <input type="text" id="user" placeholder="Chess.com username" autocomplete="off" autocapitalize="none" spellcheck="false">
-      <button class="primary">Load my games</button>
-    </form>
-    <p id="loadMsg" class="muted">Loading… if this message stays, the chess library could not be downloaded.</p>
-    <ul id="games"></ul>
-    <details>
-      <summary>Or paste a PGN</summary>
-      <textarea id="pgn" placeholder="Paste the PGN text of one game here"></textarea>
-      <button id="pgnBtn">Analyse this game</button>
-    </details>
-  </section>
+  <nav class="tabs" id="tabs">
+    <button type="button" data-tab="games" class="active">Games</button>
+    <button type="button" data-tab="review">Review</button>
+    <button type="button" data-tab="practice">Practice</button>
+    <button type="button" data-tab="progress">Progress</button>
+    <button type="button" data-tab="friends">Friends</button>
+  </nav>
 
-  <section class="card" id="review" hidden>
-    <div id="players"></div>
-    <div class="review">
-      <div>
-        <div class="boardwrap">
-          <div class="bar" id="bar"><i id="barFill"></i></div>
-          <div class="board" id="board"></div>
+  <!-- ===== Games: pick a game to review ===== -->
+  <div class="tab" id="tab-games">
+    <section class="card">
+      <form id="userForm" class="row">
+        <input type="text" id="user" placeholder="Chess.com username" autocomplete="off" autocapitalize="none" spellcheck="false" aria-label="Chess.com username">
+        <button class="primary">Load games</button>
+      </form>
+      <p id="whoNote" class="muted" hidden></p>
+      <p id="loadMsg" class="muted">Loading… if this message stays, a file is missing next to index.html.</p>
+
+      <div id="monthBar" hidden>
+        <div class="row monthrow">
+          <button type="button" id="prevMonth" title="The month before">◀<span class="wide"> Older</span></button>
+          <select id="monthSel" aria-label="Month"></select>
+          <button type="button" id="nextMonth" title="The month after"><span class="wide">Newer </span>▶</button>
+          <button type="button" id="refreshMonth" title="Fetch this month again (for games played since)">↻</button>
         </div>
-        <div class="row controls">
-          <button id="first" title="Start">⏮</button>
-          <button id="prev" title="Back">◀</button>
-          <button id="next" title="Forward">▶</button>
-          <button id="last" title="End">⏭</button>
-          <button id="flip">Flip</button>
-          <button id="nextBad">Next mistake</button>
-          <button id="voice">🔇 Voice: off</button>
-          <select id="voiceSel" title="Choose a voice" hidden></select>
+        <div class="row filters">
+          <select id="fTime" aria-label="Time class">
+            <option value="">Any speed</option><option value="bullet">Bullet</option><option value="blitz">Blitz</option>
+            <option value="rapid">Rapid</option><option value="daily">Daily</option>
+          </select>
+          <select id="fColor" aria-label="Colour">
+            <option value="">Either colour</option><option value="w">As White</option><option value="b">As Black</option>
+          </select>
+          <select id="fResult" aria-label="Result">
+            <option value="">Any result</option><option value="win">Won</option><option value="loss">Lost</option><option value="draw">Draw</option>
+          </select>
+          <input type="text" id="fOpp" placeholder="Opponent name" autocomplete="off" autocapitalize="none" spellcheck="false" aria-label="Opponent name">
+          <select id="daySel" aria-label="Jump to a date"><option value="">Jump to a date</option></select>
         </div>
+        <p id="listInfo" class="muted small"></p>
+        <div id="batch" class="row" hidden>
+          <progress id="batchProg" max="1" value="0"></progress>
+          <span id="batchMsg" class="muted"></span>
+          <button type="button" id="batchStop" class="small">Stop</button>
+        </div>
+        <div id="games"></div>
       </div>
-      <div>
+
+      <details id="pgnBox">
+        <summary>Or paste a PGN</summary>
+        <textarea id="pgn" placeholder="Paste the PGN text of one game here"></textarea>
         <div class="row">
-          <label>Depth
-            <select id="depth">
-              <option value="10">Quick (10)</option>
-              <option value="12" selected>Standard (12)</option>
-              <option value="15">Deep (15)</option>
-            </select>
-          </label>
-          <progress id="prog" max="1" value="0"></progress>
+          <button type="button" id="pgnBtn">Review this game</button>
+          <span id="pgnMsg" class="error"></span>
         </div>
-        <p id="status" class="muted"></p>
-        <div id="summary"></div>
-        <div id="info"></div>
-        <div id="moves"></div>
+      </details>
+    </section>
+  </div>
+
+  <!-- ===== Review: the board and the coach ===== -->
+  <div class="tab" id="tab-review" hidden>
+    <section class="card" id="noGame">
+      <p class="muted">No game open yet. Pick one on the Games tab, or paste a PGN there.</p>
+    </section>
+    <section class="card" id="review" hidden>
+      <div id="players"></div>
+      <div class="review">
+        <div class="left">
+          <div class="boardwrap">
+            <div class="bar" id="bar" title="Who is better: the white part grows when White is ahead"><i id="barFill"></i></div>
+            <div id="board"></div>
+          </div>
+          <div class="row controls nav">
+            <button type="button" id="first" title="Start">⏮</button>
+            <button type="button" id="prev" title="Back (left arrow key)">◀</button>
+            <button type="button" id="next" title="Forward (right arrow key)">▶</button>
+            <button type="button" id="last" title="End">⏭</button>
+            <button type="button" id="nextBad">Next mistake</button>
+            <button type="button" id="flip" title="Turn the board round">Flip</button>
+          </div>
+          <div class="row controls opts">
+            <button type="button" id="linesBtn" class="small" title="Show the engine's three best moves for the position on the board">Engine lines: off</button>
+            <button type="button" id="soundBtn" class="small">Sound: on</button>
+            <button type="button" id="voice" class="small">Voice: off</button>
+            <select id="voiceSel" title="Choose a voice" hidden></select>
+            <button type="button" id="shareBtn" class="small" hidden title="Copy a link that opens this game for a friend">Copy link</button>
+          </div>
+          <p id="shareMsg" class="muted small"></p>
+        </div>
+        <div class="right">
+          <div class="row depthrow">
+            <label>Depth
+              <select id="depth">
+                <option value="10">Quick (10)</option>
+                <option value="12" selected>Standard (12)</option>
+                <option value="14">Deep (14)</option>
+                <option value="16">Deeper (16, slow on phones)</option>
+              </select>
+            </label>
+            <progress id="prog" max="1" value="0"></progress>
+          </div>
+          <p id="status" class="muted"></p>
+          <div id="coach"></div>
+          <div id="info"></div>
+          <div id="lines"></div>
+          <div id="moves"></div>
+        </div>
       </div>
-    </div>
-  </section>
+      <div id="report" hidden>
+        <h3>Game report</h3>
+        <div id="summary"></div>
+        <h3>Who was winning <span class="muted small">(tap the graph to jump to a move)</span></h3>
+        <div id="graph" class="chart"></div>
+        <div id="keysBox"><h3>Key moments</h3><div id="keys"></div></div>
+        <div id="clockBox" hidden><h3>Time spent on each move <span class="muted small">(tap a bar to jump to that move)</span></h3><div id="clock" class="chart"></div></div>
+      </div>
+    </section>
+  </div>
 
-  <section class="card">
-    <h2>My patterns</h2>
-    <div id="patterns"></div>
-    <div class="row">
-      <button id="exportBtn">Export backup</button>
-      <button id="importBtn">Import backup</button>
-      <button id="clearBtn">Clear history</button>
-      <input type="file" id="importFile" accept="application/json,.json" hidden>
-    </div>
-    <p id="historyMsg" class="muted"></p>
-  </section>
+  <!-- ===== Practice: guess the move, and drills from saved mistakes ===== -->
+  <div class="tab" id="tab-practice" hidden>
+    <section class="card">
+      <div id="trainHome"></div>
+      <div id="trainer" class="review" hidden>
+        <div class="left">
+          <div class="boardwrap"><div id="trainBoard"></div></div>
+        </div>
+        <div class="right">
+          <p id="trainCount" class="muted"></p>
+          <div id="trainTask"></div>
+          <div id="trainFeedback"></div>
+          <div class="row controls">
+            <button type="button" id="hintBtn">Hint</button>
+            <button type="button" id="revealBtn">Show the answer</button>
+            <button type="button" id="trainNext" class="primary" hidden>Next</button>
+            <button type="button" id="trainQuit" class="small">Stop</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ===== Progress: habits across games ===== -->
+  <div class="tab" id="tab-progress" hidden>
+    <section class="card">
+      <h2>My progress</h2>
+      <div id="progress"></div>
+    </section>
+    <section class="card">
+      <h2>My patterns</h2>
+      <div id="patterns"></div>
+      <div class="row">
+        <button type="button" id="exportBtn">Export backup</button>
+        <button type="button" id="importBtn">Import backup</button>
+        <button type="button" id="clearBtn">Clear history</button>
+        <input type="file" id="importFile" accept="application/json,.json" hidden>
+      </div>
+      <p id="historyMsg" class="muted"></p>
+    </section>
+  </div>
+
+  <!-- ===== Friends ===== -->
+  <div class="tab" id="tab-friends" hidden>
+    <section class="card">
+      <h2>Friends</h2>
+      <p class="muted">Type your friends' Chess.com usernames to see everyone's ratings and recent results side by side. Nothing is sent anywhere except the public Chess.com lookups.</p>
+      <form id="friendForm" class="row">
+        <input type="text" id="friendNames" placeholder="Usernames, separated by commas" autocomplete="off" autocapitalize="none" spellcheck="false" aria-label="Friends' usernames">
+        <button class="primary">Compare</button>
+      </form>
+      <p id="friendMsg" class="muted"></p>
+      <div id="friends" class="scrollx"></div>
+    </section>
+  </div>
+
+  <footer class="muted small">
+    Second Look runs entirely in your browser: your games and history stay on this device.
+    Engine: <a href="https://github.com/nmrugg/stockfish.js">Stockfish.js</a> (GPLv3).
+    Pieces: Colin M.L. Burnett (GPLv2+). Opening names: <a href="https://github.com/lichess-org/chess-openings">lichess chess-openings</a> (CC0).
+    Rules: <a href="https://github.com/jhlywa/chess.js">chess.js</a> (BSD). Not affiliated with Chess.com.
+  </footer>
 </main>
-
-<script type="module">
-import { Chess } from 'https://cdn.jsdelivr.net/npm/chess.js@1/+esm';
-
-// ---------- Settings ----------
-const ENGINE_FILE = 'stockfish-19-lite-single.js';   // must sit next to this page, with its .wasm file
-const MAX_GAMES = 20;
-// A move is flagged when the mover's winning chances (0-100) drop by at least this much.
-const THRESHOLDS = { inaccuracy: 5, mistake: 10, blunder: 15 };
-const VOICE_SPEED = 0.95;                            // 1 = normal speaking speed
-const HABIT_AFTER = 2;                               // a type of slip counts as a habit after this many earlier times
-const HISTORY_KEY = 'cc-history';
-const MAX_HISTORY = 300;                             // oldest games drop off after this many
-
-const SYMBOL = { inaccuracy: '?!', mistake: '?', blunder: '??' };
-const GLYPH = { k: '♚', q: '♛', r: '♜', b: '♝', n: '♞', p: '♟' };
-const PIECE = { K: 'king', Q: 'queen', R: 'rook', B: 'bishop', N: 'knight' };
-const PIECE_NAME = { p: 'pawn', n: 'knight', b: 'bishop', r: 'rook', q: 'queen', k: 'king' };
-const VALUE = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
-const TAGS = {
-  droppedMaterial: { label: 'Dropped material', ing: 'dropping material' },
-  missedTactic:    { label: 'Missed a chance to win material', ing: 'missing a chance to win material' },
-  missedMate:      { label: 'Missed a forced mate', ing: 'missing a forced mate' },
-  allowedMate:     { label: 'Walked into a forced mate', ing: 'walking into a forced mate' },
-  positional:      { label: 'Positional slip (no material lost straight away)', ing: 'a positional slip' }
-};
-const FILES = 'abcdefgh';
-const $ = id => document.getElementById(id);
-const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const cap = s => s[0].toUpperCase() + s.slice(1);
-const count = (n, one, many) => n + ' ' + (n === 1 ? one : many);
-
-let G = null;        // current game
-let ply = 0;         // position being shown (0 = start)
-let flipped = false;
-
-// ---------- Engine ----------
-class Engine {
-  constructor(url) {
-    this.onLine = null;
-    this.w = new Worker(url);
-    this.failed = new Promise((_, reject) => { this.w.onerror = () => reject(new Error('engine failed to load')); });
-    this.w.onmessage = e => {
-      for (const line of String(e.data).split('\n')) if (this.onLine) this.onLine(line.trim());
-    };
-  }
-  send(cmd) { this.w.postMessage(cmd); }
-  wait(cmd, token) {
-    return new Promise(resolve => {
-      this.onLine = line => { if (line === token) { this.onLine = null; resolve(); } };
-      this.send(cmd);
-    });
-  }
-  async init() {
-    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('engine timed out')), 30000));
-    const start = (async () => { await this.wait('uci', 'uciok'); await this.wait('isready', 'readyok'); })();
-    await Promise.race([start, this.failed, timeout]);
-  }
-  // Resolves with { type: 'cp' | 'mate', value, pv: [uci moves] } from the side to move's point of view.
-  analyse(fen, depth) {
-    return new Promise(resolve => {
-      let best = null;
-      this.onLine = line => {
-        if (line.startsWith('info') && line.includes(' pv ') && !line.includes('bound')) {
-          const m = line.match(/score (cp|mate) (-?\d+)/);
-          if (m) best = { type: m[1], value: +m[2], pv: line.split(' pv ')[1].trim().split(/\s+/) };
-        } else if (line.startsWith('bestmove')) {
-          this.onLine = null;
-          resolve(best);
-        }
-      };
-      this.send('position fen ' + fen);
-      this.send('go depth ' + depth);
-    });
-  }
-}
-
-let engine = null, enginePromise = null;
-function getEngine() {
-  if (!enginePromise) {
-    enginePromise = (async () => { const e = new Engine(ENGINE_FILE); await e.init(); engine = e; return e; })()
-      .catch(err => { enginePromise = null; throw err; });
-  }
-  return enginePromise;
-}
-
-// ---------- Evaluation helpers (all evaluations are stored from White's point of view) ----------
-function whiteCp(e) {
-  if (e.winner) return e.winner === 'w' ? 10000 : -10000;
-  if (e.mate != null) return e.mate > 0 ? 10000 : -10000;
-  return e.cp;
-}
-const winPct = cp => 50 + 50 * (2 / (1 + Math.exp(-0.00368208 * cp)) - 1);
-function fmt(e) {
-  if (e.winner) return 'checkmate';
-  if (e.mate != null) return (e.mate > 0 ? '+' : '−') + 'M' + Math.abs(e.mate);
-  const v = e.cp / 100;
-  return (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(1);
-}
-function describe(e) {                       // the same evaluation in plain words
-  if (e.winner) return 'checkmate';
-  const side = whiteCp(e) > 0 ? 'White' : 'Black';
-  if (e.mate != null) return `a forced mate in ${Math.abs(e.mate)} for ${side}`;
-  const v = Math.abs(e.cp);
-  if (v < 50) return 'about level';
-  if (v < 150) return `slightly better for ${side}`;
-  if (v < 400) return `clearly better for ${side}`;
-  return `winning for ${side}`;
-}
-function terminal(fen) {
-  const c = new Chess(fen);
-  if (c.isCheckmate()) return { winner: c.turn() === 'w' ? 'b' : 'w' };
-  if (c.isStalemate()) return { cp: 0 };
-  return null;
-}
-function classify(g, i) {
-  const m = g.moves[i], s = m.color === 'w' ? 1 : -1;
-  if (m.uci === g.best[i]) return null;
-  const drop = winPct(s * whiteCp(g.ev[i])) - winPct(s * whiteCp(g.ev[i + 1]));
-  if (drop >= THRESHOLDS.blunder) return 'blunder';
-  if (drop >= THRESHOLDS.mistake) return 'mistake';
-  if (drop >= THRESHOLDS.inaccuracy) return 'inaccuracy';
-  return null;
-}
-function note(i) {
-  const m = G.moves[i], s = m.color === 'w' ? 1 : -1, a = G.ev[i], b = G.ev[i + 1];
-  const hadMate = a.mate != null && a.mate * s > 0;
-  const stillMate = (b.mate != null && b.mate * s > 0) || b.winner === m.color;
-  if (hadMate && !stillMate) return `This missed a forced mate in ${Math.abs(a.mate)}.`;
-  if (b.mate != null && b.mate * s < 0) return `This allows a forced mate in ${Math.abs(b.mate)}.`;
-  return `Before this move the position was ${describe(a)}. After it, the position is ${describe(b)}.`;
-}
-function sanLine(fen, pv) {
-  const c = new Chess(fen), out = [];
-  for (const u of pv.slice(0, 8)) {
-    try { out.push(c.move({ from: u.slice(0, 2), to: u.slice(2, 4), promotion: u[4] }).san); }
-    catch { break; }
-  }
-  return out;
-}
-const betterLine = i => sanLine(G.fens[i], G.pv[i] || []);                       // what should have been played
-const bestReply = i => sanLine(G.fens[i + 1], (G.pv[i + 1] || []).slice(0, 1))[0]; // strongest answer to the move played
-
-// ---------- Sorting each slip into a type ----------
-function material(fen) {                     // White's material minus Black's, in pawns
-  let s = 0;
-  for (const ch of fen.split(' ')[0]) {
-    const v = VALUE[ch.toLowerCase()];
-    if (v) s += ch === ch.toLowerCase() ? -v : v;
-  }
-  return s;
-}
-// Material won by the side to move if the engine's line is played out for a few moves.
-function gain(fen, pv) {
-  if (!pv || pv.length < 2) return 0;
-  const s = fen.split(' ')[1] === 'w' ? 1 : -1;
-  let n = Math.min(pv.length, 6);
-  n -= n % 2;
-  const c = new Chess(fen);
-  try { for (const u of pv.slice(0, n)) c.move({ from: u.slice(0, 2), to: u.slice(2, 4), promotion: u[4] }); }
-  catch { return 0; }
-  return s * (material(c.fen()) - material(fen));
-}
-function tagMistake(g, i) {
-  const m = g.moves[i], s = m.color === 'w' ? 1 : -1, a = g.ev[i], b = g.ev[i + 1];
-  const mateFor = e => e.mate != null && e.mate * s > 0;
-  const mateAgainst = e => e.mate != null && e.mate * s < 0;
-  if (mateFor(a) && !mateFor(b) && b.winner !== m.color) return 'missedMate';
-  if (mateAgainst(b) && !mateAgainst(a)) return 'allowedMate';
-  const playedNet = s * (material(g.fens[i + 1]) - material(g.fens[i])) - gain(g.fens[i + 1], g.pv[i + 1]);
-  const bestNet = gain(g.fens[i], g.pv[i]);
-  if (bestNet - playedNet >= 2) return playedNet <= -2 ? 'droppedMaterial' : 'missedTactic';
-  return 'positional';
-}
-function phaseOf(fen) {
-  let pieces = 0;
-  for (const ch of fen.split(' ')[0]) { const v = VALUE[ch.toLowerCase()]; if (v > 1) pieces += v; }
-  if (pieces <= 26) return 'endgame';
-  return +fen.split(' ')[5] <= 10 ? 'opening' : 'middlegame';
-}
-// true or false when the game has clock times, null when it does not
-const isLowTime = m => (G.base && m.clock != null) ? m.clock < G.base * 0.1 : null;
-
-function openingOf(h) {
-  let name = h.Opening || '';
-  if (!name && h.ECOUrl) {
-    try { name = decodeURIComponent(h.ECOUrl.split('/').pop()).replace(/-\d.*$/, '').replace(/-/g, ' '); } catch {}
-  }
-  if (!name) name = h.ECO || 'Unknown opening';
-  const fam = name.match(/^.*?\b(?:Opening|Defense|Defence|Game|Gambit|Attack|System)\b/);
-  return { name, family: fam ? fam[0] : name };
-}
-function hashText(s) {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
-  return 'g' + (h >>> 0).toString(36);
-}
-
-// ---------- History (kept in this browser only) ----------
-function loadHistory() {
-  try { const h = JSON.parse(localStorage.getItem(HISTORY_KEY)); return Array.isArray(h) ? h : []; }
-  catch { return []; }
-}
-function storeHistory(h) {
-  try { localStorage.setItem(HISTORY_KEY, JSON.stringify(h)); return true; }
-  catch { return false; }
-}
-function tallyHistory(hist) {
-  const t = { games: hist.length, slips: 0, tag: {}, tagGames: {}, phase: {}, piece: {}, low: 0, clocked: 0, openings: {} };
-  for (const r of hist) {
-    const key = r.family || 'Unknown opening';
-    const o = t.openings[key] || (t.openings[key] = { games: 0, win: 0, draw: 0, loss: 0, slips: 0 });
-    o.games++;
-    if (r.result === 'win' || r.result === 'draw' || r.result === 'loss') o[r.result]++;
-    o.slips += r.mistakes.length;
-    const seen = new Set();
-    for (const m of r.mistakes) {
-      t.slips++;
-      t.tag[m.tag] = (t.tag[m.tag] || 0) + 1;
-      if (!seen.has(m.tag)) { seen.add(m.tag); t.tagGames[m.tag] = (t.tagGames[m.tag] || 0) + 1; }
-      t.phase[m.phase] = (t.phase[m.phase] || 0) + 1;
-      t.piece[m.piece] = (t.piece[m.piece] || 0) + 1;
-      if (m.low != null) { t.clocked++; if (m.low) t.low++; }
-    }
-  }
-  return t;
-}
-function saveGame() {
-  const h = G.headers, mistakes = [];
-  G.marks.forEach((kind, i) => {
-    const m = G.moves[i];
-    if (!kind || m.color !== G.me) return;
-    mistakes.push({ n: +G.fens[i].split(' ')[5], san: m.san, kind, tag: G.tags[i] || 'positional',
-      phase: phaseOf(G.fens[i]), piece: m.piece, low: isLowTime(m), fen: G.fens[i], best: G.best[i] || '' });
-  });
-  const res = h.Result === '1/2-1/2' ? 'draw'
-    : h.Result === '1-0' ? (G.me === 'w' ? 'win' : 'loss')
-    : h.Result === '0-1' ? (G.me === 'b' ? 'win' : 'loss') : '?';
-  const rec = { id: G.id, date: h.UTCDate || h.Date || '', color: G.me, result: res,
-    opp: (G.me === 'w' ? h.Black : h.White) || '', opening: G.opening.name, family: G.opening.family,
-    moves: G.moves.length, mistakes, saved: Date.now() };
-  const hist = loadHistory().filter(r => r.id !== rec.id);
-  hist.push(rec);
-  if (hist.length > MAX_HISTORY) hist.splice(0, hist.length - MAX_HISTORY);
-  return storeHistory(hist);
-}
-function repeatNote() {                      // compares this game with the earlier ones
-  const here = {};
-  G.marks.forEach((k, i) => {
-    if (k && G.moves[i].color === G.me) { const t = G.tags[i] || 'positional'; here[t] = (here[t] || 0) + 1; }
-  });
-  const prior = G.prior.tag;
-  const repeats = Object.keys(here).filter(k => (prior[k] || 0) >= HABIT_AFTER).sort((a, b) => prior[b] - prior[a]);
-  if (!repeats.length) return '';
-  const k = repeats[0];
-  return `Seen before: ${TAGS[k].ing} happened ${count(here[k], 'time', 'times')} in this game, and `
-    + `${count(prior[k], 'time', 'times')} in your ${count(G.prior.games, 'earlier game', 'earlier games')}.`;
-}
-function finishGame() {
-  if (!G.me) {
-    setStatus('Analysis complete. Not saved to your history: type your Chess.com username at the top, then load the game again.');
-    return;
-  }
-  const ok = saveGame();
-  renderPatterns();
-  setStatus(ok ? 'Analysis complete. Saved to your history.' : 'Analysis complete, but the browser refused to save it.', !ok);
-  const rep = repeatNote();
-  if (rep) {
-    $('summary').insertAdjacentHTML('beforeend', `<p><b>${esc(rep)}</b></p>`);
-    if (voiceOn) speak(rep);
-  }
-}
-function renderPatterns() {
-  const hist = loadHistory(), el = $('patterns');
-  if (!hist.length) {
-    el.innerHTML = '<p class="muted">No games saved yet. Type your Chess.com username at the top and analyse a game.</p>';
-    return;
-  }
-  const t = tallyHistory(hist);
-  let h = `<p>${count(t.games, 'game', 'games')} saved in this browser, with `
-    + `${count(t.slips, 'flagged move', 'flagged moves')} of yours.`
-    + (t.games < 10 ? ' Patterns become reliable after about 10 games.' : '') + '</p>';
-  const tags = Object.entries(t.tag).sort((a, b) => b[1] - a[1]);
-  if (tags.length) {
-    h += '<h3>Your most common slips</h3><ol>' + tags.map(([k, n]) =>
-      `<li><b>${(TAGS[k] || TAGS.positional).label}</b>: ${count(n, 'time', 'times')}, in ${t.tagGames[k]} of ${t.games} games</li>`
-    ).join('') + '</ol>';
-    h += '<p><b>Stage of the game:</b> ' + ['opening', 'middlegame', 'endgame']
-      .map(p => `${p} ${t.phase[p] || 0}`).join(' · ') + '</p>';
-    const pieces = Object.entries(t.piece).sort((a, b) => b[1] - a[1]).slice(0, 3);
-    h += '<p><b>Pieces you slip with most:</b> ' + pieces.map(([k, n]) => `${PIECE_NAME[k] || k} (${n})`).join(', ') + '</p>';
-    if (t.clocked) h += `<p><b>Short of time:</b> ${t.low} of ${t.clocked} slips came with under 10% of your clock left.</p>`;
-  }
-  const ops = Object.entries(t.openings).sort((a, b) => b[1].games - a[1].games).slice(0, 6);
-  h += '<h3>Your openings</h3><table><tr><th>Opening</th><th>Games</th><th>Won</th><th>Drawn</th><th>Lost</th><th>Slips per game</th></tr>'
-    + ops.map(([name, o]) => `<tr><td>${esc(name)}</td><td>${o.games}</td><td>${o.win}</td><td>${o.draw}</td>`
-      + `<td>${o.loss}</td><td>${(o.slips / o.games).toFixed(1)}</td></tr>`).join('') + '</table>';
-  el.innerHTML = h;
-}
-
-// ---------- Analysis ----------
-let runId = 0, chain = Promise.resolve();
-function setStatus(text, isError) {
-  $('status').textContent = text;
-  $('status').className = isError ? 'error' : 'muted';
-}
-function startAnalysis() {
-  const id = ++runId;
-  if (engine) engine.send('stop');
-  G.ev = []; G.best = []; G.pv = []; G.marks = []; G.tags = [];
-  $('prog').value = 0;
-  $('summary').textContent = '';
-  chain = chain.then(() => analyse(id)).catch(err => console.error(err));
-}
-async function analyse(id) {
-  if (id !== runId) return;
-  const g = G, depth = +$('depth').value;
-  setStatus('Starting the engine…');
-  let eng;
-  try { eng = await getEngine(); }
-  catch {
-    if (id === runId) setStatus('The engine could not start. Check that ' + ENGINE_FILE +
-      ' and its .wasm file are in the same folder as this page.', true);
-    return;
-  }
-  if (id !== runId) return;
-  eng.send('ucinewgame');
-  await eng.wait('isready', 'readyok');
-  for (let i = 0; i < g.fens.length; i++) {
-    if (id !== runId) return;
-    const fen = g.fens[i];
-    let e = terminal(fen);
-    if (!e) {
-      const r = await eng.analyse(fen, depth);
-      if (id !== runId) return;
-      const s = fen.split(' ')[1] === 'w' ? 1 : -1;
-      e = !r ? { cp: 0 } : r.type === 'mate' ? { mate: r.value * s } : { cp: r.value * s };
-      g.best[i] = r ? r.pv[0] : undefined;
-      g.pv[i] = r ? r.pv : [];
-    }
-    g.ev[i] = e;
-    if (i > 0) {
-      g.marks[i - 1] = classify(g, i - 1);
-      if (g.marks[i - 1]) g.tags[i - 1] = tagMistake(g, i - 1);
-    }
-    $('prog').value = (i + 1) / g.fens.length;
-    setStatus(`Analysing move ${i} of ${g.fens.length - 1}…`);
-    render();
-  }
-  renderSummary();
-  finishGame();
-}
-
-// ---------- Loading games ----------
-function loadGame(pgn, me) {
-  const c = new Chess();
-  try { c.loadPgn(pgn); } catch { throw new Error('That PGN could not be read.'); }
-  const hist = c.history({ verbose: true });
-  if (!hist.length) throw new Error('No moves were found in that PGN.');
-  const headers = {};
-  for (const m of pgn.matchAll(/\[(\w+)\s+"([^"]*)"\]/g)) headers[m[1]] = m[2];
-  const r = headers.FEN ? new Chess(headers.FEN) : new Chess();
-  const fens = [r.fen()], moves = [];
-  for (const h of hist) {
-    const m = r.move(h.san);
-    moves.push({ san: m.san, color: m.color, piece: m.piece, from: m.from, to: m.to,
-      uci: m.from + m.to + (m.promotion || '') });
-    fens.push(r.fen());
-  }
-  // Clock times, when the PGN has one for every move (Chess.com games do).
-  const clocks = [...pgn.matchAll(/\[%clk (\d+):(\d+):(\d+(?:\.\d+)?)\]/g)].map(m => +m[1] * 3600 + +m[2] * 60 + +m[3]);
-  if (clocks.length === moves.length) moves.forEach((m, i) => { m.clock = clocks[i]; });
-  const tc = headers.TimeControl || '';
-  const base = /^\d+/.test(tc) && !tc.includes('/') ? parseInt(tc, 10) : 0;
-
-  const same = side => !!me && (headers[side] || '').toLowerCase() === me.toLowerCase();
-  const id = headers.Link || hashText(moves.map(m => m.san).join(' '));
-  if (synth) synth.cancel();
-  G = { headers, moves, fens, ev: [], best: [], pv: [], marks: [], tags: [], id, base,
-        me: same('White') ? 'w' : same('Black') ? 'b' : null,
-        opening: openingOf(headers),
-        prior: tallyHistory(loadHistory().filter(rec => rec.id !== id)) };
-  ply = 0;
-  flipped = G.me === 'b';
-  const name = side => esc(headers[side] || side) + (headers[side + 'Elo'] ? ` (${esc(headers[side + 'Elo'])})` : '');
-  $('players').innerHTML = `<b>${name('White')}</b> vs <b>${name('Black')}</b>`
-    + (headers.Result ? ` · ${esc(headers.Result)}` : '')
-    + `<br><span class="muted">${esc(G.opening.name)}</span>`;
-  $('review').hidden = false;
-  render();
-  startAnalysis();
-  $('review').scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
-async function fetchGames(user) {
-  const r = await fetch(`https://api.chess.com/pub/player/${encodeURIComponent(user.toLowerCase())}/games/archives`);
-  if (r.status === 404) throw new Error(`No Chess.com player called "${user}".`);
-  if (!r.ok) throw new Error('Chess.com did not respond. Try again in a minute.');
-  const { archives = [] } = await r.json();
-  const games = [];
-  const oldest = Math.max(0, archives.length - 6);          // look back six months at most
-  for (let i = archives.length - 1; i >= oldest && games.length < MAX_GAMES; i--) {
-    const month = await (await fetch(archives[i])).json();
-    games.push(...(month.games || []).filter(g => g.rules === 'chess' && g.pgn).reverse());
-  }
-  return games.slice(0, MAX_GAMES);
-}
-
-function showGames(games, user) {
-  const list = $('games');
-  list.textContent = '';
-  for (const g of games) {
-    const meWhite = g.white.username.toLowerCase() === user.toLowerCase();
-    const mine = meWhite ? g.white : g.black, opp = meWhite ? g.black : g.white;
-    const result = mine.result === 'win' ? 'Won' : opp.result === 'win' ? 'Lost' : 'Draw';
-    const date = new Date(g.end_time * 1000).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
-    const btn = document.createElement('button');
-    const res = document.createElement('span');
-    res.className = result;
-    res.textContent = result;
-    btn.append(res, ` · ${meWhite ? 'White' : 'Black'} vs ${opp.username} (${opp.rating}) · ${g.time_class} · ${date}`);
-    btn.onclick = () => {
-      try { loadGame(g.pgn, user); } catch (err) { $('loadMsg').textContent = err.message; }
-    };
-    const li = document.createElement('li');
-    li.append(btn);
-    list.append(li);
-  }
-}
-
-// ---------- Rendering ----------
-function xy(sq) {
-  const f = sq.charCodeAt(0) - 97, r = +sq[1] - 1;
-  return flipped ? [7 - f + .5, r + .5] : [f + .5, 7 - r + .5];
-}
-function renderBoard() {
-  const pos = {};
-  G.fens[ply].split(' ')[0].split('/').forEach((row, r) => {
-    let f = 0;
-    for (const ch of row) {
-      if (/\d/.test(ch)) f += +ch;
-      else { pos[FILES[f] + (8 - r)] = ch; f++; }
-    }
-  });
-  const mv = ply > 0 ? G.moves[ply - 1] : null;
-  const mark = ply > 0 ? G.marks[ply - 1] : null;
-  let html = '';
-  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
-    const file = flipped ? 7 - c : c, rank = flipped ? r + 1 : 8 - r;
-    const sq = FILES[file] + rank, p = pos[sq];
-    const hl = mv && (sq === mv.from || sq === mv.to);
-    html += `<div class="sq ${(file + rank) % 2 ? 'd' : 'l'}${hl ? ' hl' : ''}${hl && mark ? ' bad' : ''}">`
-      + (c === 0 ? `<span class="coord rk">${rank}</span>` : '')
-      + (r === 7 ? `<span class="coord fl">${FILES[file]}</span>` : '')
-      + (p ? `<span class="pc ${p === p.toUpperCase() ? 'w' : 'b'}">${GLYPH[p.toLowerCase()]}\uFE0E</span>` : '')
-      + '</div>';
-  }
-  let arrow = '';
-  const best = mark ? G.best[ply - 1] : null;
-  if (best) {
-    const [x1, y1] = xy(best.slice(0, 2));
-    let [x2, y2] = xy(best.slice(2, 4));
-    const len = Math.hypot(x2 - x1, y2 - y1) || 1;
-    x2 -= (x2 - x1) / len * .25; y2 -= (y2 - y1) / len * .25;
-    arrow = `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#2e9e4f" stroke-width=".17"
-      stroke-linecap="round" opacity=".9" marker-end="url(#ah)"/>`;
-  }
-  html += `<svg viewBox="0 0 8 8"><defs><marker id="ah" markerWidth="4" markerHeight="4" refX="2.6" refY="2"
-    orient="auto"><path d="M0,0 L4,2 L0,4 Z" fill="#2e9e4f"/></marker></defs>${arrow}</svg>`;
-  $('board').innerHTML = html;
-
-  const e = G.ev[ply];
-  $('barFill').style.height = (e ? winPct(whiteCp(e)) : 50) + '%';
-  $('bar').classList.toggle('flip', flipped);
-}
-function renderMoves() {
-  const el = $('moves');
-  if (el._game !== G) {                       // build the list once per game
-    el._game = G;
-    el.textContent = '';
-    G.moves.forEach((m, i) => {
-      if (m.color === 'w' || i === 0) {
-        const n = document.createElement('span');
-        n.className = 'num';
-        n.textContent = G.fens[i].split(' ')[5] + '.';
-        el.append(n);
-        if (m.color === 'b') el.append(document.createElement('span'));
-      }
-      const b = document.createElement('button');
-      b.onclick = () => go(i + 1);
-      el.append(b);
-    });
-  }
-  el.querySelectorAll('button').forEach((b, i) => {   // after that, only update labels and colours
-    const mark = G.marks[i];
-    const text = G.moves[i].san + (mark ? SYMBOL[mark] : '');
-    const cls = (mark || '') + (i + 1 === ply ? ' active' : '');
-    if (b.textContent !== text) b.textContent = text;
-    if (b.className !== cls) b.className = cls;
-  });
-}
-// How often you made this type of slip in earlier games (0 for the opponent's moves).
-function habitCount(i) {
-  const tag = G.tags[i];
-  return tag && G.moves[i].color === G.me ? (G.prior.tag[tag] || 0) : 0;
-}
-function renderInfo() {
-  const el = $('info');
-  if (ply === 0) {
-    el.innerHTML = '<p class="muted">Starting position. Step through with the buttons or the ← → keys.</p>';
-    return;
-  }
-  const i = ply - 1, m = G.moves[i];
-  const label = `${G.fens[i].split(' ')[5]}${m.color === 'w' ? '.' : '…'} ${m.san}`;
-  if (!G.ev[ply]) {
-    el.innerHTML = `<h3>${esc(label)}</h3><p class="muted">Not analysed yet.</p>`;
-    return;
-  }
-  const mark = G.marks[i];
-  let h = `<h3 class="${mark || ''}">${esc(label)}${mark ? SYMBOL[mark] + ' · ' + cap(mark) : ''}</h3>`;
-  h += `<p>Evaluation after this move: <b>${fmt(G.ev[ply])}</b></p>`;
-  if (mark) {
-    const line = betterLine(i), reply = bestReply(i), tag = G.tags[i], n = habitCount(i);
-    h += `<p>Better was <b>${esc(line[0] || G.best[i] || '?')}</b> (green arrow).</p>`;
-    if (line.length > 1) h += `<p class="muted">Likely continuation: ${esc(line.join(' '))}</p>`;
-    h += `<p>${note(i)}</p>`;
-    if (reply) h += `<p>Strongest reply now: <b>${esc(reply)}</b></p>`;
-    if (tag) h += `<p class="muted">Type: ${TAGS[tag].label}.`
-      + (n >= HABIT_AFTER ? ` <b>A habit of yours: ${n} times in earlier games.</b>` : '') + '</p>';
-    if (isLowTime(m)) h += `<p class="muted">Played with ${Math.round(m.clock)} seconds left on the clock.</p>`;
-  } else if (m.uci === G.best[i]) {
-    h += `<p class="muted">This was the engine's first choice.</p>`;
-  }
-  el.innerHTML = h;
-}
-function renderSummary() {
-  const n = { w: { inaccuracy: 0, mistake: 0, blunder: 0 }, b: { inaccuracy: 0, mistake: 0, blunder: 0 } };
-  G.marks.forEach((k, i) => { if (k) n[G.moves[i].color][k]++; });
-  const row = (c, side) => `<p><b>${esc(G.headers[side] || side)}</b>: `
-    + `${count(n[c].inaccuracy, 'inaccuracy', 'inaccuracies')}, `
-    + `${count(n[c].mistake, 'mistake', 'mistakes')}, ${count(n[c].blunder, 'blunder', 'blunders')}</p>`;
-  $('summary').innerHTML = row('w', 'White') + row('b', 'Black');
-}
-function render() { renderBoard(); renderMoves(); renderInfo(); }
-function go(p) {
-  if (!G) return;
-  ply = Math.max(0, Math.min(G.moves.length, p));
-  render();
-  const box = $('moves'), a = box.querySelector('.active');
-  if (a && (a.offsetTop < box.scrollTop || a.offsetTop + a.offsetHeight > box.scrollTop + box.clientHeight)) {
-    box.scrollTop = a.offsetTop - box.clientHeight / 2;
-  }
-  if (voiceOn) speak(spokenText());
-}
-
-// ---------- Voice ----------
-const synth = window.speechSynthesis;
-let voiceOn = false;
-
-// Turns chess notation into words: "Nxf3+" becomes "knight takes F 3, check".
-function sayMove(san) {
-  const tail = san.endsWith('#') ? ', checkmate' : san.endsWith('+') ? ', check' : '';
-  if (san.startsWith('O-O-O')) return 'castles queenside' + tail;
-  if (san.startsWith('O-O')) return 'castles kingside' + tail;
-  const m = san.match(/^([KQRBN])?([a-h])?([1-8])?(x)?([a-h])([1-8])(?:=([QRBN]))?[+#]?$/);
-  if (!m) return san;
-  const [, pc, fromFile, fromRank, takes, toFile, toRank, promo] = m;
-  const parts = [];
-  if (pc) parts.push(PIECE[pc]); else if (!takes) parts.push('pawn');
-  if (fromFile) parts.push(fromFile.toUpperCase());
-  if (fromRank) parts.push(fromRank);
-  parts.push(takes ? 'takes' : 'to', toFile.toUpperCase(), toRank);
-  return parts.join(' ') + (promo ? ', promoting to a ' + PIECE[promo] : '') + tail;
-}
-function who(color) {
-  if (!G.me) return color === 'w' ? 'White' : 'Black';
-  return color === G.me ? 'You' : 'Your opponent';
-}
-function spokenText() {
-  if (!G) return '';
-  if (ply === 0) return 'Starting position.';
-  const i = ply - 1, m = G.moves[i];
-  let t = `Move ${G.fens[i].split(' ')[5]}. ${who(m.color)} played ${sayMove(m.san)}.`;
-  if (!G.ev[ply]) return t;
-  const mark = G.marks[i];
-  if (mark) {
-    t += ` That is ${mark === 'inaccuracy' ? 'an inaccuracy' : 'a ' + mark}.`;
-    const better = betterLine(i)[0], reply = bestReply(i), n = habitCount(i);
-    if (better) t += ` Better was ${sayMove(better)}.`;
-    t += ' ' + note(i);
-    if (reply) t += ` The strongest reply now is ${sayMove(reply)}.`;
-    if (n >= HABIT_AFTER) t += ` This is a habit. ${cap(TAGS[G.tags[i]].ing)} has happened ${n} times in your earlier games.`;
-  } else if (m.uci === G.best[i]) {
-    t += ' That was the best move.';
-  }
-  return t;
-}
-function speak(text) {
-  if (!synth || !text) return;
-  synth.cancel();
-  const u = new SpeechSynthesisUtterance(text);
-  const v = synth.getVoices().find(x => x.name === $('voiceSel').value);
-  if (v) { u.voice = v; u.lang = v.lang; } else { u.lang = 'en-US'; }
-  u.rate = VOICE_SPEED;
-  synth.speak(u);
-}
-function fillVoices() {
-  const voices = synth.getVoices().filter(v => v.lang.startsWith('en'));
-  if (!voices.length) return;
-  let saved = '';
-  try { saved = localStorage.getItem('cc-voice') || ''; } catch {}
-  const sel = $('voiceSel');
-  sel.textContent = '';
-  for (const v of voices) {
-    const o = document.createElement('option');
-    o.value = v.name;
-    o.textContent = `${v.name} (${v.lang})`;
-    if (v.name === saved) o.selected = true;
-    sel.append(o);
-  }
-}
-if (synth) { fillVoices(); synth.onvoiceschanged = fillVoices; }
-else { $('voice').hidden = true; }
-
-// ---------- Wiring ----------
-$('first').onclick = () => go(0);
-$('prev').onclick = () => go(ply - 1);
-$('next').onclick = () => go(ply + 1);
-$('last').onclick = () => go(G.moves.length);
-$('flip').onclick = () => { flipped = !flipped; render(); };
-$('nextBad').onclick = () => {
-  let i = G.marks.findIndex((k, idx) => k && idx >= ply);
-  if (i < 0) i = G.marks.findIndex(k => k);
-  if (i >= 0) go(i + 1);
-};
-$('voice').onclick = () => {
-  voiceOn = !voiceOn;
-  $('voice').textContent = voiceOn ? '🔊 Voice: on' : '🔇 Voice: off';
-  $('voiceSel').hidden = !voiceOn;
-  if (voiceOn) speak(spokenText()); else synth.cancel();
-};
-$('voiceSel').onchange = () => {
-  try { localStorage.setItem('cc-voice', $('voiceSel').value); } catch {}
-  if (voiceOn) speak(spokenText());
-};
-$('depth').onchange = () => { if (G) { startAnalysis(); render(); } };
-document.addEventListener('keydown', e => {
-  if (!G || /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
-  if (e.key === 'ArrowLeft') { go(ply - 1); e.preventDefault(); }
-  if (e.key === 'ArrowRight') { go(ply + 1); e.preventDefault(); }
-});
-
-$('userForm').onsubmit = async e => {
-  e.preventDefault();
-  const user = $('user').value.trim();
-  if (!user) return;
-  $('loadMsg').textContent = 'Fetching games from Chess.com…';
-  $('games').textContent = '';
-  try {
-    const games = await fetchGames(user);
-    try { localStorage.setItem('cc-user', user); } catch {}
-    $('loadMsg').textContent = games.length ? 'Pick a game to review:' : 'No recent standard games found for that player.';
-    showGames(games, user);
-  } catch (err) {
-    $('loadMsg').textContent = err.message || 'Could not reach Chess.com.';
-  }
-};
-$('pgnBtn').onclick = () => {
-  try { loadGame($('pgn').value.trim(), $('user').value.trim()); }
-  catch (err) { $('loadMsg').textContent = err.message; }
-};
-
-$('exportBtn').onclick = () => {
-  const blob = new Blob([JSON.stringify(loadHistory())], { type: 'application/json' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'chess-history.json';
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-};
-$('importBtn').onclick = () => $('importFile').click();
-$('importFile').onchange = async e => {
-  const file = e.target.files[0];
-  if (!file) return;
-  try {
-    const data = JSON.parse(await file.text());
-    if (!Array.isArray(data)) throw new Error('not a backup');
-    const byId = new Map(loadHistory().map(r => [r.id, r]));
-    for (const r of data) if (r && r.id && Array.isArray(r.mistakes)) byId.set(r.id, r);
-    storeHistory([...byId.values()]);
-    renderPatterns();
-    $('historyMsg').textContent = 'Backup imported.';
-  } catch {
-    $('historyMsg').textContent = 'That file is not a backup from this site.';
-  }
-  e.target.value = '';
-};
-$('clearBtn').onclick = () => {
-  if (!confirm('Delete all saved games from this browser?')) return;
-  try { localStorage.removeItem(HISTORY_KEY); } catch {}
-  renderPatterns();
-  $('historyMsg').textContent = 'History cleared.';
-};
-
-try { $('user').value = localStorage.getItem('cc-user') || ''; } catch {}
-renderPatterns();
-$('loadMsg').textContent = 'Enter your Chess.com username, or paste a PGN.';
-</script>
+<script type="module" src="app.js"></script>
 </body>
 </html>
