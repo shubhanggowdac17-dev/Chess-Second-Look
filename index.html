@@ -400,21 +400,28 @@ function renderBoard() {
 }
 function renderMoves() {
   const el = $('moves');
-  el.textContent = '';
-  G.moves.forEach((m, i) => {
-    if (m.color === 'w' || i === 0) {
-      const n = document.createElement('span');
-      n.className = 'num';
-      n.textContent = G.fens[i].split(' ')[5] + '.';
-      el.append(n);
-      if (m.color === 'b') el.append(document.createElement('span'));
-    }
-    const b = document.createElement('button');
+  if (el._game !== G) {                       // build the list once per game
+    el._game = G;
+    el.textContent = '';
+    G.moves.forEach((m, i) => {
+      if (m.color === 'w' || i === 0) {
+        const n = document.createElement('span');
+        n.className = 'num';
+        n.textContent = G.fens[i].split(' ')[5] + '.';
+        el.append(n);
+        if (m.color === 'b') el.append(document.createElement('span'));
+      }
+      const b = document.createElement('button');
+      b.onclick = () => go(i + 1);
+      el.append(b);
+    });
+  }
+  el.querySelectorAll('button').forEach((b, i) => {   // after that, only update labels and colours
     const mark = G.marks[i];
-    b.textContent = m.san + (mark ? SYMBOL[mark] : '');
-    b.className = (mark || '') + (i + 1 === ply ? ' active' : '');
-    b.onclick = () => go(i + 1);
-    el.append(b);
+    const text = G.moves[i].san + (mark ? SYMBOL[mark] : '');
+    const cls = (mark || '') + (i + 1 === ply ? ' active' : '');
+    if (b.textContent !== text) b.textContent = text;
+    if (b.className !== cls) b.className = cls;
   });
 }
 function renderInfo() {
